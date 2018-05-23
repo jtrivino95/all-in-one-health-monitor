@@ -1,0 +1,6 @@
+SEARCH_DIR("..\gld")
+SEARCH_DIR("..\libEncastats")
+SEARCH_DIR("..\libSalvo")
+SEARCH_DIR("..\libSalvo\MCC30")
+INPUT(-lp30F4011-coff)
+INCLUDE p30F4011.gld

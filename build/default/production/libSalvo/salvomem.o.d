@@ -1,0 +1,25 @@
+build/default/production/libSalvo/salvomem.o:  \
+libSalvo/salvomem.c  \
+libSalvo/salvo.h  \
+libSalvo/salvover.h  \
+libSalvo/salvodef.h  \
+libSalvo/salvoadc.h  \
+libSalvo/salvocfg.h  \
+libSalvo/salvolbo.h  \
+libSalvo/salvolib.h  \
+libSalvo/salvopsh.h  \
+libSalvo/MCC30/salvoportmcc30.h  \
+libSalvo/salvoscb.h  \
+libSalvo/salvoocp.h  \
+libSalvo/salvowar.h  \
+libSalvo/salvomcg.h  \
+libSalvo/salvoloc.h  \
+libSalvo/salvotyp.h  \
+libSalvo/salvoctx.h  \
+libSalvo/salvocri.h  \
+libSalvo/salvompt.h  \
+libSalvo/salvostr.h  \
+libSalvo/salvomem.h  \
+libSalvo/salvomac.h  \
+libSalvo/salvofpt.h  \
+libSalvo/salvoprg.h 
