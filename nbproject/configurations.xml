@@ -14,6 +14,9 @@
       <itemPath>libSalvo/salvo.h</itemPath>
       <itemPath>libSalvo/salvocfg.h</itemPath>
       <itemPath>libSalvo/MCC30/salvoportmcc30.h</itemPath>
+      <itemPath>libEncastats/main_planta.h</itemPath>
+      <itemPath>libEncastats/main_control.h</itemPath>
+      <itemPath>libEncastats/common.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -34,6 +37,8 @@
       <itemPath>libSalvo/salvohook_wdt_MCC30_clrwdt.c</itemPath>
       <itemPath>libSalvo/salvomem.c</itemPath>
       <itemPath>libEncastats/delay.s</itemPath>
+      <itemPath>main_planta.c</itemPath>
+      <itemPath>main_control.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

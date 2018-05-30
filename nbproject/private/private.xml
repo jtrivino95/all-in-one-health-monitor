@@ -5,6 +5,7 @@
         <group>
             <file>file:/C:/Users/user/MPLABXProjects/all-in-one-health-monitor.X/main.c</file>
             <file>file:/C:/Users/user/MPLABXProjects/all-in-one-health-monitor.X/libSalvo/salvo.h</file>
+            <file>file:/C:/Users/user/MPLABXProjects/all-in-one-health-monitor.X/libEncastats/libCAN.c</file>
         </group>
     </open-files>
 </project-private>
