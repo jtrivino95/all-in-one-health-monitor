@@ -1,6 +1,7 @@
-typedef struct PacientStatus {
-    unsigned int tension, glycemia, temperature, oxygen_sat;
-} pacient_status_t;
+typedef struct TempAndOxygenPacket {
+    int temperature_raw, oxygen_sat_raw;
+    int magnitude_order;
+} temp_ox_pkt_t;
 
 #define MONITORS_SAMPLING_PERIOD            4 // ticks (1 tick = 125 ms)
 #define INPUT_SCAN_PERIOD                   4 // ticks (1 tick = 125 ms)

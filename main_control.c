@@ -47,7 +47,7 @@
 #define TEMPERATURE_KEY     2
 #define OXYGEN_SAT_KEY      5
 
-static unsigned int cad_value, tension, glycemia, temperature, oxygen_sat;
+static float tension = 0.0, glycemia = 0.0, temperature = 36.0, oxygen_sat = 99.0;
 static unsigned char glycemia_monitor_activated = 0,
         tension_monitor_activated = 0,
         temperature_monitor_activated = 0,
@@ -79,23 +79,40 @@ static unsigned char glycemia_monitor_activated = 0,
 /******************************************************************************/
 
 void TaskTempAndOxygenMonitor(void){
-    static pacient_status_t pacientStatus;
+    static temp_ox_pkt_t CAN_msg;
+    CAN_msg.magnitude_order = 10;
+    static int rand_value_expiration_temp = 0, rand_value_expiration_oxygen = 0;
+    static float rand_value = 0.0;
+    
     while(1){
         if(temperature_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
-//            pacientStatus.temperature = (cad_value / 25) + 33;
-            pacientStatus.temperature = rand() % 10;
+            if(rand_value_expiration_temp > 0){
+                temperature += rand_value;
+                rand_value_expiration_temp -= 1;
+            } else {
+                rand_value_expiration_temp = 7;
+                rand_value = (float)(rand() % 2 - rand() % 2) / (CAN_msg.magnitude_order);
+            }
+            CAN_msg.temperature_raw = (int) (temperature * CAN_msg.magnitude_order);
         }
         
         if(oxygen_sat_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
-//            pacientStatus.oxygen_sat = (cad_value / 25) + 90 + (rand() % 10);
-            pacientStatus.oxygen_sat = rand() % 10;
+            if(rand_value_expiration_oxygen > 0){
+                oxygen_sat += rand_value;
+                if(oxygen_sat > 100) oxygen_sat = 100;
+                rand_value_expiration_oxygen -= 1;
+            } else {
+                rand_value_expiration_oxygen = 3;
+                rand_value = (float)(rand() % 2 - rand() % 2) / (CAN_msg.magnitude_order);
+            }
+            CAN_msg.oxygen_sat_raw = (int) (oxygen_sat * CAN_msg.magnitude_order);
         }
         
         if(temperature_monitor_activated || oxygen_sat_monitor_activated){
             if(CANtransmissionCompleted()){ // TODO poner este if en todos?
                 CANsendMessage(EXTERNAL_MONITORS_DATA_SID,
-                        &pacientStatus,
-                        sizeof(pacient_status_t));
+                        &CAN_msg,
+                        sizeof(temp_ox_pkt_t));
             }
         }
         
@@ -164,9 +181,6 @@ void control_ISR_T1Interrupt(void){
 	OSTimer();
 }
 void control_ISR_ADCInterrupt(void){
-    // Get value from CAD
-	cad_value = CADGetValue();
-
 	// Clear interrupt
 	IFS0bits.ADIF = 0;
 }

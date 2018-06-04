@@ -51,12 +51,17 @@
 /* Global Variable and macros declaration                                     */
 /******************************************************************************/
 
+typedef struct PacientStatus {
+    float tension, glycemia, temperature, oxygen_sat;
+} pacient_status_t;
+
 #define CAD_INTERRUPT_PRIO                  1
 #define iniValueEventShowPacientStatus      0x0
 #define maskEventForPacientStatus           0xF
 
-static unsigned int cad_value, tension, glycemia, temperature, oxygen_sat;
-static unsigned char glycemia_monitor_activated = 0,
+static unsigned int cad_value;
+static float tension = 60, glycemia = 100, temperature = 0, oxygen_sat = 0;
+static char glycemia_monitor_activated = 0,
         tension_monitor_activated = 0,
         temperature_monitor_activated = 0,
         oxygen_sat_monitor_activated = 0;
@@ -95,7 +100,7 @@ void deactivateAlarm(void);
 void TaskTensionMonitor(void){
 	while(1){
         if(tension_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
-            tension += (cad_value / 8) - 127;
+            tension += ((float)cad_value - (1024/2)) * 0.0001;
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TENSION);
         }
         OS_Delay(MONITORS_SAMPLING_PERIOD);
@@ -104,8 +109,9 @@ void TaskTensionMonitor(void){
 
 void TaskGlycemiaMonitor(void){
 	while(1){
-        if(glycemia_monitor_activated){
-            glycemia = ((cad_value % 40) + 70) + (rand() % 10);
+        if(glycemia_monitor_activated){    
+            glycemia += ((float)cad_value - (1024/2)) * (0.001) + (float)(rand() % 2 - rand() % 2) * 0.01;
+            if(glycemia < 0) glycemia = 0; 
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_GLYCEMIA);
         }
 		OS_Delay(MONITORS_SAMPLING_PERIOD);
@@ -148,33 +154,33 @@ void TaskShowOutput(void){
         
         LCDClear();
         if(tension_monitor_activated){
-            sprintf(msg, "t:%dmmHg", pacientStatusP->tension);
+            sprintf(msg, "t:%.1f", pacientStatusP->tension);
             LCDMoveHome();
             LCDMoveFirstLine();
             LCDPrint(msg);
         }
         if(glycemia_monitor_activated){
-            sprintf(msg, "G:%dg/ml", pacientStatusP->glycemia);
+            sprintf(msg, "G:%.1f", pacientStatusP->glycemia);
             LCDMoveHome();
             LCDMoveSecondLine();
             LCDPrint(msg);
         }
         if(temperature_monitor_activated){
-            sprintf(msg, "T:%dßC", pacientStatusP->temperature);
+            sprintf(msg, "T:%.1fßC", pacientStatusP->temperature);
             LCDMoveHome();
             LCDMoveFirstLine();
             int i;
-            for (i = 0; i < 10; i++) {
+            for (i = 0; i < 8; i++) {
                 LCDMoveRight();
             }
             LCDPrint(msg);
         }
         if(oxygen_sat_monitor_activated){
-            sprintf(msg, "Ox:%d%%", pacientStatusP->oxygen_sat);
+            sprintf(msg, "Ox:%.1f%%", pacientStatusP->oxygen_sat);
             LCDMoveHome();
             LCDMoveSecondLine();
             int i;
-            for (i = 0; i < 10; i++) {
+            for (i = 0; i < 8; i++) {
                 LCDMoveRight();
             }
             LCDPrint(msg);
@@ -223,8 +229,8 @@ inline void planta_ISR_C1Interrupt(void){
 		// Process data
         switch(rxMsgSID){
             case EXTERNAL_MONITORS_DATA_SID:
-                temperature = ((pacient_status_t*) rxMsgData)->temperature;
-                oxygen_sat = ((pacient_status_t*) rxMsgData)->oxygen_sat;
+                temperature = (float)((temp_ox_pkt_t*) rxMsgData)->temperature_raw / ((temp_ox_pkt_t*) rxMsgData)->magnitude_order;
+                oxygen_sat = (float)((temp_ox_pkt_t*) rxMsgData)->oxygen_sat_raw / ((temp_ox_pkt_t*) rxMsgData)->magnitude_order;
                 OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TEMPERATURE_AND_OXYGEN_SAT);
                 break;
                 
