@@ -17,6 +17,7 @@
 #include "libCAD.h"
 #include "libKEYB.h"
 #include "libCAN.h"
+#include "delay.h"
 
 
 /******************************************************************************/
@@ -37,9 +38,9 @@
 
 // OS events control blocks (number of OS EVENT)
 // Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
-#define MSG_FOR_SHOW_OUTPUT            OSECBP(2)
-#define EFLAG_FOR_PACIENT_STATUS       OSECBP(3)
-#define EFLAG_FOR_PACIENT_STATUS_EFCB  OSEFCBP(1)
+#define MSG_FOR_SHOW_OUTPUT                 OSECBP(2)
+#define EFLAG_FOR_PACIENT_STATUS            OSECBP(3)
+#define EFLAG_FOR_PACIENT_STATUS_EFCB       OSEFCBP(1)
 
 #define FLAG_TENSION                        0b0001
 #define FLAG_GLYCEMIA                       0b0010
@@ -54,21 +55,11 @@
 #define iniValueEventShowPacientStatus      0x0
 #define maskEventForPacientStatus           0xF
 
-#define TENSION_LED         0
-#define GLYCEMIA_LED        2
-#define TEMPERATURE_LED     1
-#define OXYGEN_SAT_LED      3
-
-#define TENSION_KEY         0
-#define GLYCEMIA_KEY        3
-#define TEMPERATURE_KEY     2
-#define OXYGEN_SAT_KEY      5
-
 static unsigned int cad_value, tension, glycemia, temperature, oxygen_sat;
-static unsigned char glycemia_monitor_activated = 1,
-        tension_monitor_activated = 1,
-        temperature_monitor_activated = 1,
-        oxygen_sat_monitor_activated = 1;
+static unsigned char glycemia_monitor_activated = 0,
+        tension_monitor_activated = 0,
+        temperature_monitor_activated = 0,
+        oxygen_sat_monitor_activated = 0;
 static int GLYCEMIA_LOWER_TRESHOLD = 0;
 static int GLYCEMIA_UPPER_TRESHOLD = 0;
 static int TEMPERATURE_LOWER_TRESHOLD = 0;
@@ -103,13 +94,8 @@ void deactivateAlarm(void);
 
 void TaskTensionMonitor(void){
 	while(1){
-        if(getKeyNotBlocking() == TENSION_KEY){
-            tension_monitor_activated = !tension_monitor_activated;
-            toggleLED(TENSION_LED);
-            
-        }
         if(tension_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
-            tension = (cad_value / 8) + 25;
+            tension += (cad_value / 8) - 127;
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TENSION);
         }
         OS_Delay(MONITORS_SAMPLING_PERIOD);
@@ -118,11 +104,7 @@ void TaskTensionMonitor(void){
 
 void TaskGlycemiaMonitor(void){
 	while(1){
-        if(getKeyNotBlocking() == GLYCEMIA_KEY){
-            glycemia_monitor_activated = !glycemia_monitor_activated;
-            toggleLED(GLYCEMIA_LED);
-        }
-        if(glycemia_monitor_activated){ 
+        if(glycemia_monitor_activated){
             glycemia = ((cad_value % 40) + 70) + (rand() % 10);
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_GLYCEMIA);
         }
@@ -164,7 +146,7 @@ void TaskShowOutput(void){
             deactivateAlarm();
         }
         
-        LCDClear(); // Si no hay monitores, este clear no se activa, hay que crear otro flag
+        LCDClear();
         if(tension_monitor_activated){
             sprintf(msg, "t:%dmmHg", pacientStatusP->tension);
             LCDMoveHome();
@@ -240,13 +222,35 @@ inline void planta_ISR_C1Interrupt(void){
 
 		// Process data
         switch(rxMsgSID){
-            toggleLED(5);
             case EXTERNAL_MONITORS_DATA_SID:
                 temperature = ((pacient_status_t*) rxMsgData)->temperature;
                 oxygen_sat = ((pacient_status_t*) rxMsgData)->oxygen_sat;
                 OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TEMPERATURE_AND_OXYGEN_SAT);
                 break;
+                
+            case TENSION_MONITOR_STATUS_MSG_SID:
+                tension_monitor_activated = (unsigned char) *rxMsgData;
+                break;
+                
+            case GLYCEMIA_MONITOR_STATUS_MSG_SID:
+                glycemia_monitor_activated = (unsigned char) *rxMsgData;
+                break;
+                
+            case TEMPERATURE_MONITOR_STATUS_MSG_SID:
+                temperature_monitor_activated = (unsigned char) *rxMsgData;
+                break;
+                
+            case OXYGEN_SAT_MONITOR_STATUS_MSG_SID:
+                oxygen_sat_monitor_activated = (unsigned char) *rxMsgData;
+                break;
         }
+        
+        if (!tension_monitor_activated && !glycemia_monitor_activated &&
+            !oxygen_sat_monitor_activated && !temperature_monitor_activated){
+            pacient_status_t empty;
+            OSSignalMsg(MSG_FOR_SHOW_OUTPUT, &empty);
+        }
+
 	}
 }
 
@@ -278,17 +282,18 @@ char alarmTresholdReached(pacient_status_t* pacientStatusP){
 }
 
 void activateAlarm(void){
-    onLED(4);
+//    onLED(4);
 }
 
 void deactivateAlarm(void){
-    offLED(4);
+//    offLED(4);
 }
 
 void main_planta(void){
 	// ===================
 	// Init peripherals
 	// ===================
+    CANinit(NORMAL_MODE, TRUE, FALSE, 0, 0);
 	CADInit(CAD_INTERACTION_BY_INTERRUPT, CAD_INTERRUPT_PRIO);
 	CADStart(CAD_INTERACTION_BY_INTERRUPT);
     

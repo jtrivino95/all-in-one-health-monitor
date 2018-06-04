@@ -10,9 +10,6 @@
 
 //TODO controlar activacion y desactivacion de monitores desde tarea interfaz desde placa control y enviar senales a planta
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 #include <p30f4011.h>
@@ -22,6 +19,7 @@
 #include "libKEYB.h"
 #include "libCAN.h"
 #include "libLEDs.h"
+#include "delay.h"
 
 
 /******************************************************************************/
@@ -81,7 +79,6 @@ int main(void) {
     initLEDs();
 	LCDInit();
     KeybInit();
-    CANinit(NORMAL_MODE, TRUE, TRUE, 2, 7);
 
     // Seleccion del rol de la placa
     LCDClear();

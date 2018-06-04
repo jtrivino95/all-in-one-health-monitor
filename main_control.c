@@ -24,9 +24,11 @@
 
 // Tasks TCBs
 #define TASK_TEMP_AND_OXYGEN_MONITOR_P      OSTCBP(1)
+#define TASK_USER_INTERFACE_P      OSTCBP(2)
 
 // Tasks priorities
 #define PRIO_TEMP_AND_OXYGEN_MONITOR    0
+#define PRIO_USER_INTERFACE             0
 
 
 /******************************************************************************/
@@ -46,10 +48,10 @@
 #define OXYGEN_SAT_KEY      5
 
 static unsigned int cad_value, tension, glycemia, temperature, oxygen_sat;
-static unsigned char glycemia_monitor_activated = 1,
-        tension_monitor_activated = 1,
-        temperature_monitor_activated = 1,
-        oxygen_sat_monitor_activated = 1;
+static unsigned char glycemia_monitor_activated = 0,
+        tension_monitor_activated = 0,
+        temperature_monitor_activated = 0,
+        oxygen_sat_monitor_activated = 0;
 
 
 /******************************************************************************/
@@ -89,12 +91,66 @@ void TaskTempAndOxygenMonitor(void){
             pacientStatus.oxygen_sat = rand() % 10;
         }
         
-        if(CANtransmissionCompleted()){
-            toggleLED(0);
-            CANsendMessage(EXTERNAL_MONITORS_DATA_SID, &pacientStatus, sizeof(pacient_status_t)); // TODO crear struct que envie los dos datos
+        if(temperature_monitor_activated || oxygen_sat_monitor_activated){
+            if(CANtransmissionCompleted()){ // TODO poner este if en todos?
+                CANsendMessage(EXTERNAL_MONITORS_DATA_SID,
+                        &pacientStatus,
+                        sizeof(pacient_status_t));
+            }
         }
         
         OS_Delay(MONITORS_SAMPLING_PERIOD);
+	}
+}
+
+void TaskUserInterface(void){
+    char key;
+    while(1){
+        key = getKeyNotBlocking();
+        
+        switch(key){
+            case TENSION_KEY:
+                tension_monitor_activated = !tension_monitor_activated;
+                toggleLED(TENSION_LED);
+                
+//                while not can tx complete
+//                    osyield
+                
+                CANsendMessage(
+                        TENSION_MONITOR_STATUS_MSG_SID,
+                        &tension_monitor_activated,
+                        sizeof(unsigned char));
+                break;
+                
+            case GLYCEMIA_KEY:
+                glycemia_monitor_activated = !glycemia_monitor_activated;
+                toggleLED(GLYCEMIA_LED);
+                CANsendMessage(
+                        GLYCEMIA_MONITOR_STATUS_MSG_SID,
+                        &glycemia_monitor_activated,
+                        sizeof(unsigned char));
+                break;
+                
+            case TEMPERATURE_KEY:
+                temperature_monitor_activated = !temperature_monitor_activated;
+                toggleLED(TEMPERATURE_LED);
+                CANsendMessage(
+                        TEMPERATURE_MONITOR_STATUS_MSG_SID,
+                        &temperature_monitor_activated,
+                        sizeof(unsigned char));
+                break;
+                
+            case OXYGEN_SAT_KEY:
+                oxygen_sat_monitor_activated = !oxygen_sat_monitor_activated;
+                toggleLED(OXYGEN_SAT_LED);
+                CANsendMessage(
+                        OXYGEN_SAT_MONITOR_STATUS_MSG_SID,
+                        &oxygen_sat_monitor_activated,
+                        sizeof(unsigned char));
+                break;
+        }
+        
+        OS_Delay(INPUT_SCAN_PERIOD);
 	}
 }
 
@@ -136,10 +192,7 @@ void control_ISR_C1Interrupt(void){
 		CANclearRxBuffer();
 
 		// Process data
-        switch(rxMsgSID){
-            case EXTERNAL_MONITORS_DATA_SID:
-                break;
-        }
+        
 	}
 }
 
@@ -151,6 +204,7 @@ void main_control(void){
 	// ===================
 	// Init peripherals
 	// ===================
+    CANinit(NORMAL_MODE, FALSE, FALSE, 0, 0);
 	CADInit(CAD_INTERACTION_BY_INTERRUPT, CAD_INTERRUPT_PRIO);
 	CADStart(CAD_INTERACTION_BY_INTERRUPT);
     
@@ -165,7 +219,7 @@ void main_control(void){
 	OSCreateTask(TaskTempAndOxygenMonitor, TASK_TEMP_AND_OXYGEN_MONITOR_P, PRIO_TEMP_AND_OXYGEN_MONITOR);
 //    OSCreateTask(TaskShowActuatorsStatus, TASK_SHOW_ACTUATORS_STATUS_P, PRIO_SHOW_ACTUATORS_STATUS);
 //    OSCreateTask(TaskControl, TASK_CONTROL_P, PRIO_CONTROL);
-//    OSCreateTask(TaskUserInterface, TASK_USER_INTERFACE_P, PRIO_USER_INTERFACE);
+    OSCreateTask(TaskUserInterface, TASK_USER_INTERFACE_P, PRIO_USER_INTERFACE);
     
 
 	// =============================================
