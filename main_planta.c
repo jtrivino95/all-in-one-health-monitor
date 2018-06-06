@@ -61,6 +61,7 @@ typedef struct PacientStatus {
 
 static unsigned int cad_value;
 static float tension = 60, glycemia = 100, temperature = 0, oxygen_sat = 0;
+static float tension_actuator_compensation, glycemia_actuator_compensation;
 static char glycemia_monitor_activated = 0,
         tension_monitor_activated = 0,
         temperature_monitor_activated = 0,
@@ -100,7 +101,7 @@ void deactivateAlarm(void);
 void TaskTensionMonitor(void){
 	while(1){
         if(tension_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
-            tension += ((float)cad_value - (1024/2)) * 0.0001;
+            tension += ((float)cad_value - (1024/2)) * 0.001 + tension_actuator_compensation;
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TENSION);
         }
         OS_Delay(MONITORS_SAMPLING_PERIOD);
@@ -110,7 +111,7 @@ void TaskTensionMonitor(void){
 void TaskGlycemiaMonitor(void){
 	while(1){
         if(glycemia_monitor_activated){    
-            glycemia += ((float)cad_value - (1024/2)) * (0.001) + (float)(rand() % 2 - rand() % 2) * 0.01;
+            glycemia += ((float)cad_value - (1024/2) + (float)(rand() % 2 - rand() % 2)) * 0.001 + glycemia_actuator_compensation;
             if(glycemia < 0) glycemia = 0; 
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_GLYCEMIA);
         }
@@ -120,6 +121,7 @@ void TaskGlycemiaMonitor(void){
 
 void TaskPacientStatus(void){
     static pacient_status_t pacientStatus;
+    tens_glyc_pkt_t monitors_data;
     char eFlag;
     
     while(1){
@@ -133,8 +135,13 @@ void TaskPacientStatus(void){
             pacientStatus.oxygen_sat = oxygen_sat;
         }
         
+        monitors_data.tension_raw = tension * 100;
+        monitors_data.glycemia_raw = glycemia * 100;
+        monitors_data.magnitude_order = 100;
+        
+        CANsendMessage(EXTERNAL_MONITORS_DATA_SID, &monitors_data, sizeof(tens_glyc_pkt_t));
         OSSignalMsg(MSG_FOR_SHOW_OUTPUT, (OStypeMsgP) &pacientStatus);
-        // enviar CAN
+        
     }
 }
 
@@ -234,6 +241,11 @@ inline void planta_ISR_C1Interrupt(void){
                 OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TEMPERATURE_AND_OXYGEN_SAT);
                 break;
                 
+            case CONTROL_DATA_SID:
+                tension_actuator_compensation = (float)((tens_glyc_act_pkt_t*) rxMsgData)->tension_act_raw / ((tens_glyc_act_pkt_t*) rxMsgData)->magnitude_order;
+                glycemia_actuator_compensation = (float)((tens_glyc_act_pkt_t*) rxMsgData)->glycemia_act_raw / ((tens_glyc_act_pkt_t*) rxMsgData)->magnitude_order;
+                break;
+                
             case TENSION_MONITOR_STATUS_MSG_SID:
                 tension_monitor_activated = (unsigned char) *rxMsgData;
                 break;
@@ -299,7 +311,7 @@ void main_planta(void){
 	// ===================
 	// Init peripherals
 	// ===================
-    CANinit(NORMAL_MODE, TRUE, FALSE, 0, 0);
+    CANinit(NORMAL_MODE, TRUE, TRUE, 0, 0);
 	CADInit(CAD_INTERACTION_BY_INTERRUPT, CAD_INTERRUPT_PRIO);
 	CADStart(CAD_INTERACTION_BY_INTERRUPT);
     
