@@ -33,12 +33,23 @@
 #define TASK_TEMP_AND_OXYGEN_MONITOR_P  OSTCBP(1)
 #define TASK_USER_INTERFACE_P           OSTCBP(2)
 #define TASK_CONTROL_P                  OSTCBP(3)
+#define TASK_SHOW_ACTUATORS_STATUS_P    OSTCBP(4)
 
 // Tasks priorities
 #define PRIO_TEMP_AND_OXYGEN_MONITOR    0
 #define PRIO_USER_INTERFACE             0
 #define PRIO_CONTROL                    0
+#define PRIO_SHOW_ACTUATORS_STATUS      0
 
+// OS events control blocks (number of OS EVENT)
+// Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
+#define EFLAG_FOR_SHOW_ACTUATORS_STATUS         OSECBP(1)
+#define EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB    OSEFCBP(1)
+
+#define FLAG_TENSION_ACTUATOR       0b0001
+#define FLAG_GLYCEMIA_ACTUATOR      0b0010
+#define FLAG_TEMPERATURE_ACTUATOR   0b0100
+#define FLAG_OXYGEN_SAT_ACTUATOR    0b1000
 
 /******************************************************************************/
 /* Global Variable and macros declaration                                     */
@@ -47,6 +58,13 @@
 typedef struct PacientInfo {
     int pacient_id, age, genre, height, weight, smoker, diabetic;
 } pacient_info_t;
+
+typedef struct Actuators {
+    float tension, glycemia, temperature, oxygen_sat;
+} actuators_t;
+
+#define iniValueEventShowActuatorsStatus    0x0
+#define maskEventForShowActuatorsStatus     0xF
 
 #define MALE 0
 #define FEMALE 1
@@ -67,6 +85,7 @@ static unsigned char glycemia_monitor_activated = 0,
         temperature_monitor_activated = 0,
         oxygen_sat_monitor_activated = 0;
 pacient_info_t pacientInfo;
+actuators_t actuators = {0.0, 0.0, 0.0, 0.0};
 
 
 /******************************************************************************/
@@ -107,8 +126,9 @@ void TaskTempAndOxygenMonitor(void){
     
     while(1){
         if(temperature_monitor_activated){
+            // The random value is the same for $rand_value_expiration_temp cycles
             if(rand_value_expiration_temp > 0){
-                temperature += rand_value;
+                temperature += rand_value + actuators.temperature;
                 rand_value_expiration_temp -= 1;
             } else {
                 rand_value_expiration_temp = 7;
@@ -119,8 +139,9 @@ void TaskTempAndOxygenMonitor(void){
         }
         
         if(oxygen_sat_monitor_activated){
+            // The random value is the same for $rand_value_expiration_oxygen cycles
             if(rand_value_expiration_oxygen > 0){
-                oxygen_sat += rand_value;
+                oxygen_sat += rand_value + actuators.oxygen_sat;
                 if(oxygen_sat > 100) oxygen_sat = 100;
                 rand_value_expiration_oxygen -= 1;
             } else {
@@ -163,16 +184,80 @@ void TaskUserInterface(void){
 }
 
 void TaskControl(void){
-    tens_glyc_act_pkt_t actuators;
+    static tens_glyc_act_pkt_t actuators_pkt;
+    actuators_pkt.magnitude_order = 10;
+    
     while(1){
-        actuators.glycemia_act_raw = -10;
-        actuators.tension_act_raw = -10;
-        actuators.magnitude_order = 1;
-        CANsendMessage(CONTROL_DATA_SID, &actuators, sizeof(tens_glyc_act_pkt_t));
+        if(tension_monitor_activated && (tension < TENSION_LOWER_LIMIT || tension > TENSION_UPPER_LIMIT)){
+            actuators.tension += tension > TENSION_UPPER_LIMIT  ? -0.1 : 0.1;
+            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TENSION_ACTUATOR);
+            
+        } else {
+            actuators.tension = 0;
+        }
+        
+        if(glycemia_monitor_activated && (glycemia < GLYCEMIA_LOWER_LIMIT || glycemia > GLYCEMIA_UPPER_LIMIT)){
+            actuators.glycemia += glycemia > GLYCEMIA_UPPER_LIMIT  ? -0.1 : 0.1;
+            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_GLYCEMIA_ACTUATOR);
+            
+        } else {
+            actuators.glycemia = 0;
+        }
+        
+        if(temperature_monitor_activated && (temperature < TEMPERATURE_LOWER_LIMIT || temperature > TEMPERATURE_UPPER_LIMIT)){
+            actuators.temperature += temperature > TEMPERATURE_UPPER_LIMIT  ? -0.1 : 0.1;
+            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TEMPERATURE_ACTUATOR);
+            
+        } else {
+            actuators.temperature = 0;
+        }
+        
+        if(oxygen_sat_monitor_activated && (oxygen_sat < OXYGEN_SAT_LOWER_LIMIT || oxygen_sat > OXYGEN_SAT_UPPER_LIMIT)){
+            actuators.oxygen_sat += oxygen_sat > OXYGEN_SAT_UPPER_LIMIT  ? -0.1 : 0.1;
+            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_OXYGEN_SAT_ACTUATOR);
+            
+        } else {
+            actuators.oxygen_sat = 0;
+        }
+        LCDClear(); // TODO si no se usa flag no hace falta
+        
+        actuators_pkt.tension_act_raw = (int) (actuators.tension * actuators_pkt.magnitude_order);
+        actuators_pkt.glycemia_act_raw = (int) (actuators.glycemia * actuators_pkt.magnitude_order);
+        
+        CANsendMessage(CONTROL_DATA_SID, &actuators_pkt, sizeof(tens_glyc_act_pkt_t));
         OS_Delay(CONTROL_PERIOD);
     }
 }
 
+void TaskShowActuatorsStatus(void){
+    char eFlag;
+    while(1){
+        OSClrEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, maskEventForShowActuatorsStatus);
+        OS_WaitEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, maskEventForShowActuatorsStatus, OSANY_BITS, OSNO_TIMEOUT);
+        eFlag = OSReadEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS);
+        LCDClear();
+		if (eFlag & FLAG_TENSION_ACTUATOR){
+            LCDPrint(" Suministrando ");
+            LCDMoveSecondLine();
+            LCDPrint(" enalapril...");
+        }
+		else if (eFlag & FLAG_GLYCEMIA_ACTUATOR){
+            LCDPrint(" Suministrando ");
+            LCDMoveSecondLine();
+            LCDPrint(" insulina...");
+        }
+        else if (eFlag & FLAG_TEMPERATURE_ACTUATOR){
+            LCDPrint(" Suministrando ");
+            LCDMoveSecondLine();
+            LCDPrint(" paracetamol...");
+        }
+        else if (eFlag & FLAG_OXYGEN_SAT_ACTUATOR){
+            LCDPrint(" Activando ");
+            LCDMoveSecondLine();
+            LCDPrint(" gafa nasal...");
+        }
+    }
+}
 
 /******************************************************************************/
 /* Interrupts                                                                 */
@@ -284,10 +369,9 @@ void printHyperterminalMenu(void){
 }
 
 void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
-        char cursor_min_row, char num_options, char cursor_col){
+                               char cursor_min_row, char num_options, char cursor_col){
     TermMove(cursor_min_row + *selected_opt, cursor_col);
     TermPrint(" ");
-    
 
     char key = TermGetCharNotBlocking();
     while(TermGetCharNotBlocking() != NO_CHAR_RX_UART);
@@ -322,7 +406,7 @@ void printSelectedOption(char selected_option){
     while(BusyUART1());
     TermMove(12,0);
 
-    char buff[50];
+    char buff[30];
     switch(selected_option){
         case 0:
             sprintf(buff,"ID Paciente:\t%d", pacientInfo.pacient_id);
@@ -340,22 +424,35 @@ void printSelectedOption(char selected_option){
             sprintf(buff,"Diabetico:\t%s", pacientInfo.diabetic ? "Si" : "No");
             TermPrint(buff);TermNewLine();
             break;
+            
         case 1:
-            sprintf(buff,"Tension:\t%.2f mmHg", tension);
-            TermPrint(buff);TermNewLine();
-            sprintf(buff,"Glucemia:\t%.2f g/mL", glycemia);
-            TermPrint(buff);TermNewLine();
-            sprintf(buff,"Temperatura:\t%.2f C", temperature);
-            TermPrint(buff);TermNewLine();
-            sprintf(buff,"Sat. oxigeno:\t%.2f %%", oxygen_sat);
-            TermPrint(buff);TermNewLine();
+            if(tension_monitor_activated){
+                sprintf(buff,"Tension:\t%.2f mmHg", tension);
+                TermPrint(buff); TermNewLine();
+            }
+            if(glycemia_monitor_activated){
+                sprintf(buff,"Glucemia:\t%.2f g/mL", glycemia);
+                TermPrint(buff); TermNewLine();   
+            }
+            if(temperature_monitor_activated){
+                sprintf(buff,"Temperatura:\t%.2f C", temperature);
+                TermPrint(buff); TermNewLine();
+            }
+            if(oxygen_sat_monitor_activated){
+                sprintf(buff,"Sat. oxigeno:\t%.2f %%", oxygen_sat);
+                TermPrint(buff); TermNewLine();
+            }
             break;
+            
         case 2:
-            TermPrint("Opcion 3");TermNewLine();
-            break;
-        case 3:
-            TermPrint("Opcion 4");TermNewLine();
-            break;
+            sprintf(buff,"Enalapril:\t%s", actuators.tension ? "Suministrando medicamento" : "Desactivado");
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Insulina:\t%s", actuators.glycemia ? "Suministrando medicamento" : "Desactivado");
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Paracetamol:\t%s", actuators.temperature ? "Suministrando medicamento" : "Desactivado");
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Gafa nasal:\t%s", actuators.oxygen_sat ? "Suministrando oxigeno" : "Desactivada");
+            TermPrint(buff);TermNewLine();
     }
 }
 
@@ -413,10 +510,12 @@ void main_control(void){
 	// From 1 up to OSTASKS tcbs available
 	// Priorities from 0 (highest) down to 15 (lowest)
 	OSCreateTask(TaskTempAndOxygenMonitor, TASK_TEMP_AND_OXYGEN_MONITOR_P, PRIO_TEMP_AND_OXYGEN_MONITOR);
-//    OSCreateTask(TaskShowActuatorsStatus, TASK_SHOW_ACTUATORS_STATUS_P, PRIO_SHOW_ACTUATORS_STATUS);
+    OSCreateTask(TaskShowActuatorsStatus, TASK_SHOW_ACTUATORS_STATUS_P, PRIO_SHOW_ACTUATORS_STATUS);
     OSCreateTask(TaskControl, TASK_CONTROL_P, PRIO_CONTROL);
     OSCreateTask(TaskUserInterface, TASK_USER_INTERFACE_P, PRIO_USER_INTERFACE);
     
+    // Create event flag (ecbP, efcbP, initial value)
+	OSCreateEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB, iniValueEventShowActuatorsStatus);
 
 	// =============================================
 	// Enable peripherals that trigger interrupts
@@ -424,14 +523,19 @@ void main_control(void){
 	Timer1Init(TIMER_PERIOD_FOR_125ms, TIMER_PSCALER_FOR_125ms, 4);
 	Timer1Start();
     
-//    readPacientInfoWithHyperterminal(&pacientInfo);
-    pacientInfo.pacient_id = 3525;
-    pacientInfo.age = 22;
-    pacientInfo.genre = 0;
-    pacientInfo.height = 185;
-    pacientInfo.weight = 90;
-    pacientInfo.smoker = 1;
-    pacientInfo.diabetic = 1;
+    LCDClear();
+    LCDPrint(" Introduce datos");
+    LCDMoveSecondLine();
+    LCDPrint(" para continuar...");
+    readPacientInfoWithHyperterminal(&pacientInfo);
+//    pacientInfo.pacient_id = 3525;
+//    pacientInfo.age = 22;
+//    pacientInfo.genre = 0;
+//    pacientInfo.height = 185;
+//    pacientInfo.weight = 90;
+//    pacientInfo.smoker = 1;
+//    pacientInfo.diabetic = 1;
+//    LCDClear();
 
 	// =============================================
 	// Enter multitasking environment

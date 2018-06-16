@@ -24,3 +24,13 @@ typedef struct TensAndGlycActuatorValues {
 #define TEMPERATURE_MONITOR_STATUS_MSG_SID     3
 #define OXYGEN_SAT_MONITOR_STATUS_MSG_SID      4
 #define CONTROL_DATA_SID                       5
+
+// Thresholds
+#define TENSION_UPPER_LIMIT         140.0
+#define TENSION_LOWER_LIMIT         90.0
+#define GLYCEMIA_UPPER_LIMIT        300.0
+#define GLYCEMIA_LOWER_LIMIT        60.0
+#define TEMPERATURE_UPPER_LIMIT     38.0
+#define TEMPERATURE_LOWER_LIMIT     35.0
+#define OXYGEN_SAT_UPPER_LIMIT      100.0
+#define OXYGEN_SAT_LOWER_LIMIT      99.0

@@ -241,7 +241,7 @@ inline void planta_ISR_C1Interrupt(void){
                 OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TEMPERATURE_AND_OXYGEN_SAT);
                 break;
                 
-            case CONTROL_DATA_SID:
+            case CONTROL_DATA_SID:                
                 tension_actuator_compensation = (float)((tens_glyc_act_pkt_t*) rxMsgData)->tension_act_raw / ((tens_glyc_act_pkt_t*) rxMsgData)->magnitude_order;
                 glycemia_actuator_compensation = (float)((tens_glyc_act_pkt_t*) rxMsgData)->glycemia_act_raw / ((tens_glyc_act_pkt_t*) rxMsgData)->magnitude_order;
                 break;
