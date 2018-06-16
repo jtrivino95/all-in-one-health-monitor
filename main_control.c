@@ -68,7 +68,7 @@ pacient_info_t pacientInfo;
 /******************************************************************************/
 void readMicrocontrollerKeyboard(void);
 void printHyperterminalMenu(void);
-void readHyperterminalKeyboard(int *selected_opt, char *update,
+void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
         char cursor_min_row, char num_options, char cursor_col);
 void printSelectedOption(char selected_option);
 
@@ -136,17 +136,17 @@ void TaskTempAndOxygenMonitor(void){
 }
 
 void TaskUserInterface(void){
-    static char printed = 0, update = 0;
+    static char printed = 0, update = 0, reset = 0;
     static int cursor_min_row = 8, num_options = 3, cursor_col = 2,
                selected_option = 0, prev_sel_opt = -1;
     while(1){
         readMicrocontrollerKeyboard();
-        if(!printed){
+        if(!printed || reset){
             printHyperterminalMenu();
             printed = 1;
         }
         prev_sel_opt = selected_option;
-        readHyperterminalKeyboard(&selected_option, &update, cursor_min_row, num_options, cursor_col);  
+        readHyperterminalKeyboard(&selected_option, &update, &reset, cursor_min_row, num_options, cursor_col);  
         if(update || selected_option != prev_sel_opt){
             printSelectedOption(selected_option);
         }
@@ -264,9 +264,9 @@ void printHyperterminalMenu(void){
     TermPrint("All-in-one Health Monitor v1.0.2");TermNewLine();
     TermNewLine();
     TermPrint("-------------------------------------------------");TermNewLine();
-    TermPrint("-----        Mueve el cursor           ------------");TermNewLine();
-    TermPrint("-----     con las teclas [w] y [s].    ------------");TermNewLine();
-    TermPrint("----- Pulsa [ESPACIO] para actualizar. -------------");TermNewLine();
+    TermPrint("-----          Mueve el cursor         ----------");TermNewLine();
+    TermPrint("-----     con las teclas [w] y [s].    ----------");TermNewLine();
+    TermPrint("----- Pulsa [ESPACIO] para actualizar. ----------");TermNewLine();
     TermPrint("-------------------------------------------------");TermNewLine();
     TermPrint("[ ] Informacion del paciente");TermNewLine();
     TermPrint("[ ] Constantes vitales");TermNewLine();
@@ -275,7 +275,8 @@ void printHyperterminalMenu(void){
     while(BusyUART1());
 }
 
-void readHyperterminalKeyboard(int *selected_opt, char *update, char cursor_min_row, char num_options, char cursor_col){
+void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
+        char cursor_min_row, char num_options, char cursor_col){
     TermMove(cursor_min_row + *selected_opt, cursor_col);
     TermPrint(" ");
     
@@ -284,6 +285,7 @@ void readHyperterminalKeyboard(int *selected_opt, char *update, char cursor_min_
     while(TermGetCharNotBlocking() != NO_CHAR_RX_UART);
     
     *update = FALSE;
+    *reset = FALSE;
     if(key == 'w'){
         if(*selected_opt > 0){
             *selected_opt -= 1;
@@ -294,6 +296,8 @@ void readHyperterminalKeyboard(int *selected_opt, char *update, char cursor_min_
         }
     } else if(key == ' '){
         *update = TRUE;
+    } else if(key == 'p'){
+        *reset = TRUE;
     }
       
     TermMove(cursor_min_row + *selected_opt, cursor_col);
