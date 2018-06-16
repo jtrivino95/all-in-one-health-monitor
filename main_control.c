@@ -68,8 +68,8 @@ pacient_info_t pacientInfo;
 /******************************************************************************/
 void readMicrocontrollerKeyboard(void);
 void printHyperterminalMenu(void);
-char readHyperterminalKeyboard(char cursor_min_row, char num_options,
-                               char cursor_col, char selected_opt);
+void readHyperterminalKeyboard(int *selected_opt, char *update,
+        char cursor_min_row, char num_options, char cursor_col);
 void printSelectedOption(char selected_option);
 
 /******************************************************************************/
@@ -136,8 +136,8 @@ void TaskTempAndOxygenMonitor(void){
 }
 
 void TaskUserInterface(void){
-    static char printed = 0;
-    static int cursor_min_row = 6, num_options = 3, cursor_col = 2,
+    static char printed = 0, update = 0;
+    static int cursor_min_row = 8, num_options = 3, cursor_col = 2,
                selected_option = 0, prev_sel_opt = -1;
     while(1){
         readMicrocontrollerKeyboard();
@@ -146,8 +146,8 @@ void TaskUserInterface(void){
             printed = 1;
         }
         prev_sel_opt = selected_option;
-        selected_option = readHyperterminalKeyboard(cursor_min_row, num_options, cursor_col, selected_option);  
-        if(selected_option != prev_sel_opt){
+        readHyperterminalKeyboard(&selected_option, &update, cursor_min_row, num_options, cursor_col);  
+        if(update || selected_option != prev_sel_opt){
             printSelectedOption(selected_option);
         }
         OS_Delay(INPUT_SCAN_PERIOD);
@@ -262,10 +262,12 @@ void readMicrocontrollerKeyboard(void){
 void printHyperterminalMenu(void){
     TermClear();
     TermPrint("All-in-one Health Monitor v1.0.2");TermNewLine();
-    TermPrint("-------------------------------------------------");TermNewLine();
     TermNewLine();
-    TermPrint("----- Mueve el cursor arriba o abajo ------------");TermNewLine();
-    TermPrint("----- Pulsa ENTER para seleccionar la opcion ----");TermNewLine();
+    TermPrint("-------------------------------------------------");TermNewLine();
+    TermPrint("-----        Mueve el cursor           ------------");TermNewLine();
+    TermPrint("-----     con las teclas [w] y [s].    ------------");TermNewLine();
+    TermPrint("----- Pulsa [ESPACIO] para actualizar. -------------");TermNewLine();
+    TermPrint("-------------------------------------------------");TermNewLine();
     TermPrint("[ ] Informacion del paciente");TermNewLine();
     TermPrint("[ ] Constantes vitales");TermNewLine();
     TermPrint("[ ] Estado de los actuadores");TermNewLine();
@@ -273,28 +275,29 @@ void printHyperterminalMenu(void){
     while(BusyUART1());
 }
 
-char readHyperterminalKeyboard(char cursor_min_row, char num_options, char cursor_col, char selected_opt){
-    TermMove(cursor_min_row + selected_opt, cursor_col);
+void readHyperterminalKeyboard(int *selected_opt, char *update, char cursor_min_row, char num_options, char cursor_col){
+    TermMove(cursor_min_row + *selected_opt, cursor_col);
     TermPrint(" ");
     
 
     char key = TermGetCharNotBlocking();
     while(TermGetCharNotBlocking() != NO_CHAR_RX_UART);
     
+    *update = FALSE;
     if(key == 'w'){
-        if(selected_opt > 0){
-            selected_opt -= 1;
+        if(*selected_opt > 0){
+            *selected_opt -= 1;
         }
     } else if(key == 's'){
-        if(selected_opt < num_options-1){
-            selected_opt += 1;
+        if(*selected_opt < num_options-1){
+            *selected_opt += 1;
         }
+    } else if(key == ' '){
+        *update = TRUE;
     }
       
-    TermMove(cursor_min_row + selected_opt, cursor_col);
+    TermMove(cursor_min_row + *selected_opt, cursor_col);
     TermPrint("*");
-    
-    return selected_opt;
 }
 
 void printSelectedOption(char selected_option){
