@@ -50,8 +50,6 @@ typedef struct PacientInfo {
 
 #define MALE 0
 #define FEMALE 1
-#define TRUE 1
-#define FALSE 0
 
 #define TENSION_LED         0
 #define GLYCEMIA_LED        2
@@ -79,6 +77,8 @@ void printHyperterminalMenu(void);
 void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
         char cursor_min_row, char num_options, char cursor_col);
 void printSelectedOption(char selected_option);
+void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo);
+void readField(char prompt[], int* field);
 
 /******************************************************************************/
 /* TASKS declaration and implementation for PLANTA                            */
@@ -367,9 +367,6 @@ void readField(char prompt[], int* field){
     TermPrint(prompt);
     do{
         key = TermGetChar();
-        char buff[20];
-        sprintf(buff, "  %d", key);
-        LCDClear(); LCDPrint(buff);
         if(isprint(key)){
             buff_char[0] = key;
             TermPrint(buff_char);
@@ -386,7 +383,7 @@ void readField(char prompt[], int* field){
     *field = atoi(buff_string);
 }
 
-readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo){
+void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo){
     TermClear();
     TermPrint("All-in-one Health Monitor v1.0.2");TermNewLine();
     TermNewLine();
@@ -427,8 +424,15 @@ void main_control(void){
 	Timer1Init(TIMER_PERIOD_FOR_125ms, TIMER_PSCALER_FOR_125ms, 4);
 	Timer1Start();
     
-    readPacientInfoWithHyperterminal(&pacientInfo);
-    
+//    readPacientInfoWithHyperterminal(&pacientInfo);
+    pacientInfo.pacient_id = 3525;
+    pacientInfo.age = 22;
+    pacientInfo.genre = 0;
+    pacientInfo.height = 185;
+    pacientInfo.weight = 90;
+    pacientInfo.smoker = 1;
+    pacientInfo.diabetic = 1;
+
 	// =============================================
 	// Enter multitasking environment
 	// =============================================
