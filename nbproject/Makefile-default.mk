@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=main.c libEncastats/libCAD.c libEncastats/libCAN.c libEncastats/libKEYB.c libEncastats/libLCD.c libEncastats/libLEDs.c libEncastats/libTIMER.c libSalvo/salvohook_interrupt_MCC30_IRQ.c libSalvo/salvohook_wdt_MCC30_clrwdt.c libSalvo/salvomem.c libEncastats/delay.s main_planta.c main_control.c
+SOURCEFILES_QUOTED_IF_SPACED=main.c libEncastats/libCAD.c libEncastats/libCAN.c libEncastats/libKEYB.c libEncastats/libLCD.c libEncastats/libLEDs.c libEncastats/libTIMER.c libSalvo/salvohook_interrupt_MCC30_IRQ.c libSalvo/salvohook_wdt_MCC30_clrwdt.c libSalvo/salvomem.c libEncastats/delay.s main_planta.c main_control.c libEncastats/Term.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/libEncastats/libCAD.o ${OBJECTDIR}/libEncastats/libCAN.o ${OBJECTDIR}/libEncastats/libKEYB.o ${OBJECTDIR}/libEncastats/libLCD.o ${OBJECTDIR}/libEncastats/libLEDs.o ${OBJECTDIR}/libEncastats/libTIMER.o ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o ${OBJECTDIR}/libSalvo/salvomem.o ${OBJECTDIR}/libEncastats/delay.o ${OBJECTDIR}/main_planta.o ${OBJECTDIR}/main_control.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/libEncastats/libCAD.o.d ${OBJECTDIR}/libEncastats/libCAN.o.d ${OBJECTDIR}/libEncastats/libKEYB.o.d ${OBJECTDIR}/libEncastats/libLCD.o.d ${OBJECTDIR}/libEncastats/libLEDs.o.d ${OBJECTDIR}/libEncastats/libTIMER.o.d ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o.d ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o.d ${OBJECTDIR}/libSalvo/salvomem.o.d ${OBJECTDIR}/libEncastats/delay.o.d ${OBJECTDIR}/main_planta.o.d ${OBJECTDIR}/main_control.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/libEncastats/libCAD.o ${OBJECTDIR}/libEncastats/libCAN.o ${OBJECTDIR}/libEncastats/libKEYB.o ${OBJECTDIR}/libEncastats/libLCD.o ${OBJECTDIR}/libEncastats/libLEDs.o ${OBJECTDIR}/libEncastats/libTIMER.o ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o ${OBJECTDIR}/libSalvo/salvomem.o ${OBJECTDIR}/libEncastats/delay.o ${OBJECTDIR}/main_planta.o ${OBJECTDIR}/main_control.o ${OBJECTDIR}/libEncastats/Term.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/libEncastats/libCAD.o.d ${OBJECTDIR}/libEncastats/libCAN.o.d ${OBJECTDIR}/libEncastats/libKEYB.o.d ${OBJECTDIR}/libEncastats/libLCD.o.d ${OBJECTDIR}/libEncastats/libLEDs.o.d ${OBJECTDIR}/libEncastats/libTIMER.o.d ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o.d ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o.d ${OBJECTDIR}/libSalvo/salvomem.o.d ${OBJECTDIR}/libEncastats/delay.o.d ${OBJECTDIR}/main_planta.o.d ${OBJECTDIR}/main_control.o.d ${OBJECTDIR}/libEncastats/Term.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/libEncastats/libCAD.o ${OBJECTDIR}/libEncastats/libCAN.o ${OBJECTDIR}/libEncastats/libKEYB.o ${OBJECTDIR}/libEncastats/libLCD.o ${OBJECTDIR}/libEncastats/libLEDs.o ${OBJECTDIR}/libEncastats/libTIMER.o ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o ${OBJECTDIR}/libSalvo/salvomem.o ${OBJECTDIR}/libEncastats/delay.o ${OBJECTDIR}/main_planta.o ${OBJECTDIR}/main_control.o
+OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/libEncastats/libCAD.o ${OBJECTDIR}/libEncastats/libCAN.o ${OBJECTDIR}/libEncastats/libKEYB.o ${OBJECTDIR}/libEncastats/libLCD.o ${OBJECTDIR}/libEncastats/libLEDs.o ${OBJECTDIR}/libEncastats/libTIMER.o ${OBJECTDIR}/libSalvo/salvohook_interrupt_MCC30_IRQ.o ${OBJECTDIR}/libSalvo/salvohook_wdt_MCC30_clrwdt.o ${OBJECTDIR}/libSalvo/salvomem.o ${OBJECTDIR}/libEncastats/delay.o ${OBJECTDIR}/main_planta.o ${OBJECTDIR}/main_control.o ${OBJECTDIR}/libEncastats/Term.o
 
 # Source Files
-SOURCEFILES=main.c libEncastats/libCAD.c libEncastats/libCAN.c libEncastats/libKEYB.c libEncastats/libLCD.c libEncastats/libLEDs.c libEncastats/libTIMER.c libSalvo/salvohook_interrupt_MCC30_IRQ.c libSalvo/salvohook_wdt_MCC30_clrwdt.c libSalvo/salvomem.c libEncastats/delay.s main_planta.c main_control.c
+SOURCEFILES=main.c libEncastats/libCAD.c libEncastats/libCAN.c libEncastats/libKEYB.c libEncastats/libLCD.c libEncastats/libLEDs.c libEncastats/libTIMER.c libSalvo/salvohook_interrupt_MCC30_IRQ.c libSalvo/salvohook_wdt_MCC30_clrwdt.c libSalvo/salvomem.c libEncastats/delay.s main_planta.c main_control.c libEncastats/Term.c
 
 
 CFLAGS=
@@ -204,6 +204,13 @@ ${OBJECTDIR}/main_control.o: main_control.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/main_control.o 
 	@${FIXDEPS} "${OBJECTDIR}/main_control.o.d" $(SILENT) -rsi ${MP_CC_DIR}../ -c ${MP_CC} $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -omf=coff -x c -c -mcpu=$(MP_PROCESSOR_OPTION) -I"libSalvo" -I"libEncastats" -MMD -MF "${OBJECTDIR}/main_control.o.d" -o ${OBJECTDIR}/main_control.o main_control.c    
 	
+${OBJECTDIR}/libEncastats/Term.o: libEncastats/Term.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/libEncastats" 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o.d 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o.ok ${OBJECTDIR}/libEncastats/Term.o.err 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o 
+	@${FIXDEPS} "${OBJECTDIR}/libEncastats/Term.o.d" $(SILENT) -rsi ${MP_CC_DIR}../ -c ${MP_CC} $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -omf=coff -x c -c -mcpu=$(MP_PROCESSOR_OPTION) -I"libSalvo" -I"libEncastats" -MMD -MF "${OBJECTDIR}/libEncastats/Term.o.d" -o ${OBJECTDIR}/libEncastats/Term.o libEncastats/Term.c    
+	
 else
 ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -288,6 +295,13 @@ ${OBJECTDIR}/main_control.o: main_control.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/main_control.o.ok ${OBJECTDIR}/main_control.o.err 
 	@${RM} ${OBJECTDIR}/main_control.o 
 	@${FIXDEPS} "${OBJECTDIR}/main_control.o.d" $(SILENT) -rsi ${MP_CC_DIR}../ -c ${MP_CC} $(MP_EXTRA_CC_PRE)  -g -omf=coff -x c -c -mcpu=$(MP_PROCESSOR_OPTION) -I"libSalvo" -I"libEncastats" -MMD -MF "${OBJECTDIR}/main_control.o.d" -o ${OBJECTDIR}/main_control.o main_control.c    
+	
+${OBJECTDIR}/libEncastats/Term.o: libEncastats/Term.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/libEncastats" 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o.d 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o.ok ${OBJECTDIR}/libEncastats/Term.o.err 
+	@${RM} ${OBJECTDIR}/libEncastats/Term.o 
+	@${FIXDEPS} "${OBJECTDIR}/libEncastats/Term.o.d" $(SILENT) -rsi ${MP_CC_DIR}../ -c ${MP_CC} $(MP_EXTRA_CC_PRE)  -g -omf=coff -x c -c -mcpu=$(MP_PROCESSOR_OPTION) -I"libSalvo" -I"libEncastats" -MMD -MF "${OBJECTDIR}/libEncastats/Term.o.d" -o ${OBJECTDIR}/libEncastats/Term.o libEncastats/Term.c    
 	
 endif
 
