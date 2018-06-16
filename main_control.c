@@ -11,6 +11,9 @@
 #include <salvo.h>
 #include <stdio.h>
 #include <uart.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "libLEDs.h"
@@ -42,8 +45,13 @@
 /******************************************************************************/
 
 typedef struct PacientInfo {
-    char *name, *age, *sex, *height, *weight, *smoker, *diabetic;
+    int pacient_id, age, genre, height, weight, smoker, diabetic;
 } pacient_info_t;
+
+#define MALE 0
+#define FEMALE 1
+#define TRUE 1
+#define FALSE 0
 
 #define TENSION_LED         0
 #define GLYCEMIA_LED        2
@@ -317,19 +325,19 @@ void printSelectedOption(char selected_option){
     char buff[50];
     switch(selected_option){
         case 0:
-            sprintf(buff,"Nombre:\t\t%s", pacientInfo.name);
+            sprintf(buff,"ID Paciente:\t%d", pacientInfo.pacient_id);
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Edad:\t\t%s", pacientInfo.age);
+            sprintf(buff,"Edad:\t\t%d", pacientInfo.age);
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Sexo:\t\t%s", pacientInfo.sex);
+            sprintf(buff,"Sexo:\t\t%s", pacientInfo.genre ? "Hombre" : "Mujer");
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Altura:\t\t%s", pacientInfo.height);
+            sprintf(buff,"Altura:\t\t%d", pacientInfo.height);
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Peso:\t\t%s", pacientInfo.weight);
+            sprintf(buff,"Peso:\t\t%d", pacientInfo.weight);
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Fumador:\t%s", pacientInfo.smoker);
+            sprintf(buff,"Fumador:\t%s", pacientInfo.smoker ? "Si" : "No");
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Diabetico:\t%s", pacientInfo.diabetic);
+            sprintf(buff,"Diabetico:\t%s", pacientInfo.diabetic ? "Si" : "No");
             TermPrint(buff);TermNewLine();
             break;
         case 1:
@@ -349,6 +357,46 @@ void printSelectedOption(char selected_option){
             TermPrint("Opcion 4");TermNewLine();
             break;
     }
+}
+
+void readField(char prompt[], int* field){
+    char key, buff_string[15], buff_char[2];
+    buff_string[0] = '\0';
+    buff_char[1] = '\0';
+    
+    TermPrint(prompt);
+    do{
+        key = TermGetChar();
+        char buff[20];
+        sprintf(buff, "  %d", key);
+        LCDClear(); LCDPrint(buff);
+        if(isprint(key)){
+            buff_char[0] = key;
+            TermPrint(buff_char);
+            strcat(buff_string, buff_char);
+        } else if(key == 127){ // Return
+            TermMoveLeft();
+            TermPrint(" ");
+            TermMoveLeft();
+            buff_string[strlen(buff_string)-1] = '\0';
+        }
+    }while(key != 13); // Enter
+    TermNewLine();
+    
+    *field = atoi(buff_string);
+}
+
+readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo){
+    TermClear();
+    TermPrint("All-in-one Health Monitor v1.0.2");TermNewLine();
+    TermNewLine();
+    readField("Introduce ID: ", &pacientInfo->pacient_id);
+    readField("Introduce edad: ", &pacientInfo->age);
+    readField("Introduce genero [1-Hombre, 0-Mujer]: ", &pacientInfo->genre);
+    readField("Introduce altura: ", &pacientInfo->height);
+    readField("Introduce peso: ", &pacientInfo->weight);
+    readField("Fumador? [1-Si, 0-No]: ", &pacientInfo->smoker);
+    readField("Diabetico? [1-Si, 0-No]: ", &pacientInfo->diabetic);
 }
 
 void main_control(void){
@@ -379,13 +427,7 @@ void main_control(void){
 	Timer1Init(TIMER_PERIOD_FOR_125ms, TIMER_PSCALER_FOR_125ms, 4);
 	Timer1Start();
     
-    pacientInfo.name = "Manuel";
-    pacientInfo.age = "22";
-    pacientInfo.sex = "Hombre";
-    pacientInfo.height = "1.85";
-    pacientInfo.weight = "90";
-    pacientInfo.smoker = "Si";
-    pacientInfo.diabetic = "Si";
+    readPacientInfoWithHyperterminal(&pacientInfo);
     
 	// =============================================
 	// Enter multitasking environment
