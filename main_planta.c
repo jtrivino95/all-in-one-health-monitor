@@ -60,7 +60,7 @@ typedef struct PacientStatus {
 #define maskEventForPacientStatus           0xF
 
 static unsigned int cad_value;
-static float tension = 60, glycemia = 100, temperature = 0, oxygen_sat = 0;
+static float tension = 80, glycemia = 100, temperature = 0, oxygen_sat = 0;
 static float tension_actuator_compensation, glycemia_actuator_compensation;
 static char glycemia_monitor_activated = 0,
         tension_monitor_activated = 0,

@@ -53,6 +53,12 @@ typedef struct Actuators {
     float tension, glycemia, temperature, oxygen_sat;
 } actuators_t;
 
+typedef struct Thresholds {
+    float tension_upper_limit, tension_lower_limit, glycemia_upper_limit,
+        glycemia_lower_limit, temperature_upper_limit, temperature_lower_limit,
+        oxygen_sat_upper_limit, oxygen_sat_lower_limit;
+} thresholds_t;
+
 #define MALE 1
 #define FEMALE 0
 
@@ -73,6 +79,7 @@ static unsigned char glycemia_monitor_activated = 0,
         oxygen_sat_monitor_activated = 0;
 pacient_info_t pacientInfo;
 actuators_t actuators = {0.0, 0.0, 0.0, 0.0};
+thresholds_t thresholds;
 
 
 /******************************************************************************/
@@ -85,6 +92,7 @@ void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
 void printSelectedOption(char selected_option);
 void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo);
 void readField(char prompt[], int* field);
+void computeThresholds(void);
 
 /******************************************************************************/
 /* TASKS declaration and implementation for PLANTA                            */
@@ -153,7 +161,7 @@ void TaskTempAndOxygenMonitor(void){
 
 void TaskUserInterface(void){
     static char printed = 0, update = 0, reset = 0;
-    static int cursor_min_row = 8, num_options = 3, cursor_col = 2,
+    static int cursor_min_row = 8, num_options = 4, cursor_col = 2,
                selected_option = 0, prev_sel_opt = -1;
     while(1){
         readMicrocontrollerKeyboard();
@@ -175,29 +183,29 @@ void TaskControl(void){
     actuators_pkt.magnitude_order = 10;
     
     while(1){
-        if(tension_monitor_activated && (tension < TENSION_LOWER_LIMIT || tension > TENSION_UPPER_LIMIT)){
-            actuators.tension += tension > TENSION_UPPER_LIMIT  ? -0.1 : 0.1;
+        if(tension_monitor_activated && (tension < thresholds.tension_lower_limit || tension > thresholds.tension_upper_limit)){
+            actuators.tension += tension > thresholds.tension_upper_limit  ? -0.1 : 0.1;
             
         } else {
             actuators.tension = 0;
         }
         
-        if(glycemia_monitor_activated && (glycemia < GLYCEMIA_LOWER_LIMIT || glycemia > GLYCEMIA_UPPER_LIMIT)){
-            actuators.glycemia += glycemia > GLYCEMIA_UPPER_LIMIT  ? -0.1 : 0.1;
+        if(glycemia_monitor_activated && (glycemia < thresholds.glycemia_lower_limit || glycemia > thresholds.glycemia_upper_limit)){
+            actuators.glycemia += glycemia > thresholds.glycemia_upper_limit  ? -0.1 : 0.1;
             
         } else {
             actuators.glycemia = 0;
         }
         
-        if(temperature_monitor_activated && (temperature < TEMPERATURE_LOWER_LIMIT || temperature > TEMPERATURE_UPPER_LIMIT)){
-            actuators.temperature += temperature > TEMPERATURE_UPPER_LIMIT  ? -0.1 : 0.1;
+        if(temperature_monitor_activated && (temperature < thresholds.temperature_lower_limit || temperature > thresholds.temperature_upper_limit)){
+            actuators.temperature += temperature > thresholds.temperature_upper_limit  ? -0.1 : 0.1;
             
         } else {
             actuators.temperature = 0;
         }
         
-        if(oxygen_sat_monitor_activated && (oxygen_sat < OXYGEN_SAT_LOWER_LIMIT || oxygen_sat > OXYGEN_SAT_UPPER_LIMIT)){
-            actuators.oxygen_sat += oxygen_sat > OXYGEN_SAT_UPPER_LIMIT  ? -0.1 : 0.1;
+        if(oxygen_sat_monitor_activated && (oxygen_sat < thresholds.oxygen_sat_lower_limit || oxygen_sat > thresholds.oxygen_sat_upper_limit)){
+            actuators.oxygen_sat += oxygen_sat > thresholds.oxygen_sat_upper_limit  ? -0.1 : 0.1;
             
         } else {
             actuators.oxygen_sat = 0;
@@ -207,6 +215,7 @@ void TaskControl(void){
         actuators_pkt.glycemia_act_raw = (int) (actuators.glycemia * actuators_pkt.magnitude_order);
         
         CANsendMessage(CONTROL_DATA_SID, &actuators_pkt, sizeof(tens_glyc_act_pkt_t));
+        
         OS_Delay(CONTROL_PERIOD);
     }
 }
@@ -214,26 +223,30 @@ void TaskControl(void){
 void TaskShowActuatorsStatus(void){
     while(1){
         LCDClear();
+        LCDMoveHome();
 		if (actuators.tension){
-            LCDPrint(" Suministrando ");
+            LCDPrint("Suministrando ");
             LCDMoveSecondLine();
-            LCDPrint(" enalapril...");
+            LCDPrint("enalapril...");
         }
 		else if (actuators.glycemia){
-            LCDPrint(" Suministrando ");
+            LCDPrint("Suministrando ");
             LCDMoveSecondLine();
-            LCDPrint(" insulina...");
+            LCDPrint("insulina...");
         }
         else if (actuators.temperature){
-            LCDPrint(" Suministrando ");
+            LCDPrint("Suministrando ");
             LCDMoveSecondLine();
-            LCDPrint(" paracetamol...");
+            LCDPrint("paracetamol...");
         }
         else if (actuators.oxygen_sat){
-            LCDPrint(" Activando ");
+            LCDPrint("Activando ");
             LCDMoveSecondLine();
-            LCDPrint(" gafa nasal...");
+            LCDPrint("gafa nasal...");
+        } else {
+            LCDPrint("Monitorizando...");
         }
+        
         OS_Delay(CONTROL_PERIOD);
     }
 }
@@ -343,6 +356,7 @@ void printHyperterminalMenu(void){
     TermPrint("[ ] Informacion del paciente");TermNewLine();
     TermPrint("[ ] Constantes vitales");TermNewLine();
     TermPrint("[ ] Estado de los actuadores");TermNewLine();
+    TermPrint("[ ] Umbrales");TermNewLine();
     TermPrint("-------------------------------------------------");TermNewLine();
     while(BusyUART1());
 }
@@ -376,14 +390,14 @@ void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
 }
 
 void printSelectedOption(char selected_option){
-    TermMove(12,0);
+    TermMove(13,0);
     int i;
     for (i = 0; i < 10; i++) {
-        TermPrint("                                        ");
+        TermPrint("                                             ");
         TermNewLine();
     }
     while(BusyUART1());
-    TermMove(12,0);
+    TermMove(13,0);
 
     char buff[30];
     switch(selected_option){
@@ -432,6 +446,25 @@ void printSelectedOption(char selected_option){
             TermPrint(buff);TermNewLine();
             sprintf(buff,"Gafa nasal:\t%s", actuators.oxygen_sat ? "Suministrando oxigeno" : "Desactivada");
             TermPrint(buff);TermNewLine();
+            break;
+        case 3:
+            sprintf(buff,"Maxima tension:\t\t\t%.1f", thresholds.tension_upper_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Minima tension:\t\t\t%.1f", thresholds.tension_lower_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Maxima glucemia:\t\t%.1f", thresholds.glycemia_upper_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Minima glucemia:\t\t%.1f", thresholds.glycemia_lower_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Maxima temperatura:\t\t%.1f", thresholds.temperature_upper_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Minima temperatura:\t\t%.1f", thresholds.temperature_lower_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Maxima saturacion de oxigeno:\t%.1f", thresholds.oxygen_sat_upper_limit);
+            TermPrint(buff);TermNewLine();
+            sprintf(buff,"Minima saturacion de oxigeno:\t%.1f", thresholds.oxygen_sat_lower_limit);
+            TermPrint(buff);TermNewLine();
+            break;
     }
 }
 
@@ -472,6 +505,36 @@ void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo){
     readField("Diabetico? [1-Si, 0-No]: ", &pacientInfo->diabetic);
 }
 
+void computeThresholds(void){
+    float tension_thresholds_ponderation, glycemia_thresholds_ponderation;
+    tension_thresholds_ponderation =
+            0.2 * ((float)pacientInfo.age/120) +
+            0.2 * ((float)pacientInfo.height/230) +
+            0.3 * ((float)pacientInfo.weight/200) +
+            0.2 * ((float)pacientInfo.smoker) +
+            0.1 * ((float)pacientInfo.diabetic);
+    
+    glycemia_thresholds_ponderation =
+            0.15 * ((float)pacientInfo.age/120) +
+            0.05 * ((float)pacientInfo.height/230) +
+            0.2  * ((float)pacientInfo.weight/200) +
+            0.1  * ((float)pacientInfo.smoker) +
+            0.5  * ((float)pacientInfo.diabetic);
+    
+    thresholds.tension_upper_limit = 180 * tension_thresholds_ponderation;
+    thresholds.tension_lower_limit = 120 * tension_thresholds_ponderation;
+    
+    thresholds.glycemia_upper_limit = 400 * glycemia_thresholds_ponderation;
+    thresholds.glycemia_lower_limit = 100 * glycemia_thresholds_ponderation;
+    
+    thresholds.oxygen_sat_upper_limit = 100;
+    if (pacientInfo.smoker) thresholds.oxygen_sat_lower_limit = 95;
+    else thresholds.oxygen_sat_lower_limit = 98;
+    
+    thresholds.temperature_upper_limit = 38;
+    thresholds.temperature_lower_limit = 35;
+}
+
 void main_control(void){
 	// ===================
 	// Init peripherals
@@ -500,18 +563,19 @@ void main_control(void){
 	Timer1Start();
     
     LCDClear();
-    LCDPrint(" Introduce datos");
+    LCDMoveHome();
+    LCDPrint("Introduce datos");
     LCDMoveSecondLine();
-    LCDPrint(" para continuar...");
+    LCDPrint("para continuar...");
     readPacientInfoWithHyperterminal(&pacientInfo);
 //    pacientInfo.pacient_id = 3525;
-//    pacientInfo.age = 22;
+//    pacientInfo.age = 85;
 //    pacientInfo.genre = 0;
-//    pacientInfo.height = 185;
-//    pacientInfo.weight = 90;
+//    pacientInfo.height = 190;
+//    pacientInfo.weight = 65;
 //    pacientInfo.smoker = 1;
-//    pacientInfo.diabetic = 1;
-//    LCDClear();
+//    pacientInfo.diabetic = 0;
+    computeThresholds();
 
 	// =============================================
 	// Enter multitasking environment
