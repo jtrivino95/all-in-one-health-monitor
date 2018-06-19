@@ -66,8 +66,8 @@ typedef struct Actuators {
 #define iniValueEventShowActuatorsStatus    0x0
 #define maskEventForShowActuatorsStatus     0xF
 
-#define MALE 0
-#define FEMALE 1
+#define MALE 1
+#define FEMALE 0
 
 #define TENSION_LED         0
 #define GLYCEMIA_LED        2
@@ -413,7 +413,7 @@ void printSelectedOption(char selected_option){
             TermPrint(buff);TermNewLine();
             sprintf(buff,"Edad:\t\t%d", pacientInfo.age);
             TermPrint(buff);TermNewLine();
-            sprintf(buff,"Sexo:\t\t%s", pacientInfo.genre ? "Hombre" : "Mujer");
+            sprintf(buff,"Sexo:\t\t%s", pacientInfo.genre == MALE ? "Hombre" : "Mujer");
             TermPrint(buff);TermNewLine();
             sprintf(buff,"Altura:\t\t%d", pacientInfo.height);
             TermPrint(buff);TermNewLine();

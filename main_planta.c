@@ -100,7 +100,7 @@ void deactivateAlarm(void);
 
 void TaskTensionMonitor(void){
 	while(1){
-        if(tension_monitor_activated){ // TODO en vez de este if, deshabilitar la tarea
+        if(tension_monitor_activated){
             tension += ((float)cad_value - (1024/2)) * 0.001 + tension_actuator_compensation;
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TENSION);
         }
