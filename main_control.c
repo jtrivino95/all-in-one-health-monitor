@@ -41,16 +41,6 @@
 #define PRIO_CONTROL                    0
 #define PRIO_SHOW_ACTUATORS_STATUS      0
 
-// OS events control blocks (number of OS EVENT)
-// Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
-#define EFLAG_FOR_SHOW_ACTUATORS_STATUS         OSECBP(1)
-#define EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB    OSEFCBP(1)
-
-#define FLAG_TENSION_ACTUATOR       0b0001
-#define FLAG_GLYCEMIA_ACTUATOR      0b0010
-#define FLAG_TEMPERATURE_ACTUATOR   0b0100
-#define FLAG_OXYGEN_SAT_ACTUATOR    0b1000
-
 /******************************************************************************/
 /* Global Variable and macros declaration                                     */
 /******************************************************************************/
@@ -62,9 +52,6 @@ typedef struct PacientInfo {
 typedef struct Actuators {
     float tension, glycemia, temperature, oxygen_sat;
 } actuators_t;
-
-#define iniValueEventShowActuatorsStatus    0x0
-#define maskEventForShowActuatorsStatus     0xF
 
 #define MALE 1
 #define FEMALE 0
@@ -190,7 +177,6 @@ void TaskControl(void){
     while(1){
         if(tension_monitor_activated && (tension < TENSION_LOWER_LIMIT || tension > TENSION_UPPER_LIMIT)){
             actuators.tension += tension > TENSION_UPPER_LIMIT  ? -0.1 : 0.1;
-            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TENSION_ACTUATOR);
             
         } else {
             actuators.tension = 0;
@@ -198,7 +184,6 @@ void TaskControl(void){
         
         if(glycemia_monitor_activated && (glycemia < GLYCEMIA_LOWER_LIMIT || glycemia > GLYCEMIA_UPPER_LIMIT)){
             actuators.glycemia += glycemia > GLYCEMIA_UPPER_LIMIT  ? -0.1 : 0.1;
-            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_GLYCEMIA_ACTUATOR);
             
         } else {
             actuators.glycemia = 0;
@@ -206,7 +191,6 @@ void TaskControl(void){
         
         if(temperature_monitor_activated && (temperature < TEMPERATURE_LOWER_LIMIT || temperature > TEMPERATURE_UPPER_LIMIT)){
             actuators.temperature += temperature > TEMPERATURE_UPPER_LIMIT  ? -0.1 : 0.1;
-            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TEMPERATURE_ACTUATOR);
             
         } else {
             actuators.temperature = 0;
@@ -214,12 +198,10 @@ void TaskControl(void){
         
         if(oxygen_sat_monitor_activated && (oxygen_sat < OXYGEN_SAT_LOWER_LIMIT || oxygen_sat > OXYGEN_SAT_UPPER_LIMIT)){
             actuators.oxygen_sat += oxygen_sat > OXYGEN_SAT_UPPER_LIMIT  ? -0.1 : 0.1;
-            OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_OXYGEN_SAT_ACTUATOR);
             
         } else {
             actuators.oxygen_sat = 0;
         }
-        LCDClear(); // TODO si no se usa flag no hace falta
         
         actuators_pkt.tension_act_raw = (int) (actuators.tension * actuators_pkt.magnitude_order);
         actuators_pkt.glycemia_act_raw = (int) (actuators.glycemia * actuators_pkt.magnitude_order);
@@ -230,32 +212,29 @@ void TaskControl(void){
 }
 
 void TaskShowActuatorsStatus(void){
-    char eFlag;
     while(1){
-        OSClrEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, maskEventForShowActuatorsStatus);
-        OS_WaitEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, maskEventForShowActuatorsStatus, OSANY_BITS, OSNO_TIMEOUT);
-        eFlag = OSReadEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS);
         LCDClear();
-		if (eFlag & FLAG_TENSION_ACTUATOR){
+		if (actuators.tension){
             LCDPrint(" Suministrando ");
             LCDMoveSecondLine();
             LCDPrint(" enalapril...");
         }
-		else if (eFlag & FLAG_GLYCEMIA_ACTUATOR){
+		else if (actuators.glycemia){
             LCDPrint(" Suministrando ");
             LCDMoveSecondLine();
             LCDPrint(" insulina...");
         }
-        else if (eFlag & FLAG_TEMPERATURE_ACTUATOR){
+        else if (actuators.temperature){
             LCDPrint(" Suministrando ");
             LCDMoveSecondLine();
             LCDPrint(" paracetamol...");
         }
-        else if (eFlag & FLAG_OXYGEN_SAT_ACTUATOR){
+        else if (actuators.oxygen_sat){
             LCDPrint(" Activando ");
             LCDMoveSecondLine();
             LCDPrint(" gafa nasal...");
         }
+        OS_Delay(CONTROL_PERIOD);
     }
 }
 
@@ -513,9 +492,6 @@ void main_control(void){
     OSCreateTask(TaskShowActuatorsStatus, TASK_SHOW_ACTUATORS_STATUS_P, PRIO_SHOW_ACTUATORS_STATUS);
     OSCreateTask(TaskControl, TASK_CONTROL_P, PRIO_CONTROL);
     OSCreateTask(TaskUserInterface, TASK_USER_INTERFACE_P, PRIO_USER_INTERFACE);
-    
-    // Create event flag (ecbP, efcbP, initial value)
-	OSCreateEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB, iniValueEventShowActuatorsStatus);
 
 	// =============================================
 	// Enable peripherals that trigger interrupts
