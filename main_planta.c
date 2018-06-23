@@ -17,7 +17,6 @@
 #include "libCAD.h"
 #include "libKEYB.h"
 #include "libCAN.h"
-#include "delay.h"
 
 
 /******************************************************************************/
@@ -25,10 +24,10 @@
 /******************************************************************************/
 
 // Tasks TCBs for PLANTA
-#define TASK_TENSION_MONITOR_P 		OSTCBP(1) /* task #1 */
-#define TASK_GLYCEMIA_MONITOR_P 	OSTCBP(2) /* task #2 */
-#define TASK_PACIENT_STATUS_P       OSTCBP(3) /* task #3 */
-#define TASK_SHOW_OUTPUT_P          OSTCBP(4) /* task #4 */
+#define TASK_TENSION_MONITOR_P 		OSTCBP(1)
+#define TASK_GLYCEMIA_MONITOR_P 	OSTCBP(2)
+#define TASK_PACIENT_STATUS_P       OSTCBP(3)
+#define TASK_SHOW_OUTPUT_P          OSTCBP(4)
 
 // Tasks priorities for PLANTA
 #define PRIO_TENSION_MONITOR            0
@@ -40,6 +39,8 @@
 // Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
 #define MSG_FOR_SHOW_OUTPUT                 OSECBP(2)
 #define EFLAG_FOR_PACIENT_STATUS            OSECBP(3)
+#define BINSEM_SEND_CAN_MSG                 OSECBP(4)
+
 #define EFLAG_FOR_PACIENT_STATUS_EFCB       OSEFCBP(1)
 
 #define FLAG_TENSION                        0b0001
@@ -75,14 +76,6 @@ static int TENSION_UPPER_TRESHOLD = 0;
 static int OXYGEN_SAT_LOWER_TRESHOLD = 0;
 static int OXYGEN_SAT_UPPER_TRESHOLD = 0;
 
-
-/******************************************************************************/
-/* Procedures declaration                                                     */
-/******************************************************************************/
-char alarmTresholdReached(pacient_status_t* pacientStatusP);
-void activateAlarm(void);
-void deactivateAlarm(void);
-
 /******************************************************************************/
 /* TASKS declaration and implementation for PLANTA                            */
 /******************************************************************************/
@@ -104,6 +97,7 @@ void TaskTensionMonitor(void){
             tension += ((float)cad_value - (1024/2)) * 0.001 + tension_actuator_compensation;
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_TENSION);
         }
+        OSSignalBinSem(BINSEM_SEND_CAN_MSG);
         OS_Delay(MONITORS_SAMPLING_PERIOD);
 	}
 }
@@ -115,6 +109,7 @@ void TaskGlycemiaMonitor(void){
             if(glycemia < 0) glycemia = 0; 
             OSSetEFlag(EFLAG_FOR_PACIENT_STATUS, FLAG_GLYCEMIA);
         }
+        OSSignalBinSem(BINSEM_SEND_CAN_MSG);
 		OS_Delay(MONITORS_SAMPLING_PERIOD);
 	}
 }
@@ -139,8 +134,13 @@ void TaskPacientStatus(void){
         monitors_data.glycemia_raw = glycemia * 100;
         monitors_data.magnitude_order = 100;
         
-        CANsendMessage(EXTERNAL_MONITORS_DATA_SID, &monitors_data, sizeof(tens_glyc_pkt_t));
         OSSignalMsg(MSG_FOR_SHOW_OUTPUT, (OStypeMsgP) &pacientStatus);
+        
+//        while(!CANtransmissionCompleted()){
+//            OS_WaitBinSem(BINSEM_SEND_CAN_MSG, OSNO_TIMEOUT);
+//        }
+        while(!CANtransmissionCompleted());
+        CANsendMessage(EXTERNAL_MONITORS_DATA_SID, (unsigned char *) &monitors_data, sizeof(tens_glyc_pkt_t));
         
     }
 }
@@ -152,12 +152,6 @@ void TaskShowOutput(void){
     while(1){
         OS_WaitMsg(MSG_FOR_SHOW_OUTPUT, &msgP, OSNO_TIMEOUT);
         pacientStatusP = (pacient_status_t *) msgP;
-
-        if(alarmTresholdReached(pacientStatusP)){
-            activateAlarm();
-        } else {
-            deactivateAlarm();
-        }
         
         LCDClear();
         if(tension_monitor_activated){
@@ -276,37 +270,6 @@ inline void planta_ISR_C1Interrupt(void){
 /* Procedures implementation                                                  */
 /******************************************************************************/
 
-char alarmTresholdReached(pacient_status_t* pacientStatusP){
-    if(pacientStatusP->glycemia < GLYCEMIA_LOWER_TRESHOLD
-            || pacientStatusP->glycemia > GLYCEMIA_UPPER_TRESHOLD){
-        return 1;
-        
-    } else if(pacientStatusP->temperature < TEMPERATURE_LOWER_TRESHOLD
-            || pacientStatusP->temperature > TEMPERATURE_UPPER_TRESHOLD){
-        return 1;
-        
-    } else if(pacientStatusP->tension < TENSION_LOWER_TRESHOLD
-            || pacientStatusP->tension > TENSION_UPPER_TRESHOLD){
-        return 1;
-        
-    } else if(pacientStatusP->oxygen_sat < OXYGEN_SAT_LOWER_TRESHOLD
-            || pacientStatusP->oxygen_sat > OXYGEN_SAT_UPPER_TRESHOLD){
-        return 1;
-        
-    } else {
-        return 0;
-        
-    }
-}
-
-void activateAlarm(void){
-//    onLED(4);
-}
-
-void deactivateAlarm(void){
-//    offLED(4);
-}
-
 void main_planta(void){
 	// ===================
 	// Init peripherals
@@ -333,6 +296,9 @@ void main_planta(void){
     
     // Create mailbox
 	OSCreateMsg(MSG_FOR_SHOW_OUTPUT, (OStypeMsgP) 0);
+    
+    // Create binary semaphores (pointer, initial value)
+	OSCreateBinSem(BINSEM_SEND_CAN_MSG, 1);
 
 	// =============================================
 	// Enable peripherals that trigger interrupts

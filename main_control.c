@@ -45,6 +45,8 @@
 // Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
 #define MSG_FOR_CONTROL                         OSECBP(1)
 #define EFLAG_FOR_SHOW_ACTUATORS_STATUS         OSECBP(2)
+#define BINSEM_SEND_CAN_MSG                     OSECBP(3)
+
 #define EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB    OSEFCBP(2)
 
 #define FLAG_TENSION_ACTUATOR       0b0001
@@ -108,13 +110,9 @@ void printHyperterminalMenu(void);
 void readHyperterminalKeyboard(int *selected_opt, char *update, char *reset,
         char cursor_min_row, char num_options, char cursor_col);
 void printSelectedOption(char selected_option);
-void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo);
+void readPacientInfoWithHyperterminal(void);
 void readField(char prompt[], int* field);
 void computeThresholds(void);
-
-/******************************************************************************/
-/* TASKS declaration and implementation for PLANTA                            */
-/******************************************************************************/
 
  /* Task states
 
@@ -169,11 +167,12 @@ void TaskTempAndOxygenMonitor(void){
             char *null;
             OSSignalMsg(MSG_FOR_CONTROL, (OStypeMsgP) null);
             
-            if(CANtransmissionCompleted()){ // TODO poner este if en todos?
-                CANsendMessage(EXTERNAL_MONITORS_DATA_SID,
-                        (unsigned char *) &CAN_msg,
-                        sizeof(temp_ox_pkt_t));
+            while(!CANtransmissionCompleted()){
+                OS_WaitBinSem(BINSEM_SEND_CAN_MSG, OSNO_TIMEOUT);
             }
+            CANsendMessage(EXTERNAL_MONITORS_DATA_SID,
+                           (unsigned char *) &CAN_msg,
+                           sizeof(temp_ox_pkt_t));
         }
         
         OS_Delay(MONITORS_SAMPLING_PERIOD);
@@ -195,6 +194,7 @@ void TaskUserInterface(void){
         if(update || selected_option != prev_sel_opt){
             printSelectedOption(selected_option);
         }
+        OSSignalBinSem(BINSEM_SEND_CAN_MSG);
         OS_Delay(INPUT_SCAN_PERIOD);
 	}
 }
@@ -244,6 +244,9 @@ void TaskControl(void){
         actuators_pkt.tension_act_raw = (int) (actuators.tension * actuators_pkt.magnitude_order);
         actuators_pkt.glycemia_act_raw = (int) (actuators.glycemia * actuators_pkt.magnitude_order);
         
+        while(!CANtransmissionCompleted()){
+            OS_WaitBinSem(BINSEM_SEND_CAN_MSG, OSNO_TIMEOUT);
+        }
         CANsendMessage(CONTROL_DATA_SID, (unsigned char *) &actuators_pkt, sizeof(tens_glyc_act_pkt_t));
     }
 }
@@ -327,14 +330,12 @@ void control_ISR_C1Interrupt(void){
 /******************************************************************************/
 void readMicrocontrollerKeyboard(void){
     char key = getKeyNotBlocking();
+    
+    if(key != NO_BUTTON_PRESSED) while(!CANtransmissionCompleted());
     switch(key){
         case TENSION_KEY:
             tension_monitor_activated = !tension_monitor_activated;
             toggleLED(TENSION_LED);
-
-    //                while not can tx complete
-    //                    osyield
-
             CANsendMessage(
                     TENSION_MONITOR_STATUS_MSG_SID,
                     &tension_monitor_activated,
@@ -518,17 +519,17 @@ void readField(char prompt[], int* field){
     *field = atoi(buff_string);
 }
 
-void readPacientInfoWithHyperterminal(pacient_info_t *pacientInfo){
+void readPacientInfoWithHyperterminal(void){
     TermClear();
     TermPrint("All-in-one Health Monitor v1.0.2");TermNewLine();
     TermNewLine();
-    readField("Introduce ID: ", &pacientInfo->pacient_id);
-    readField("Introduce edad: ", &pacientInfo->age);
-    readField("Introduce genero [1-Hombre, 0-Mujer]: ", &pacientInfo->genre);
-    readField("Introduce altura: ", &pacientInfo->height);
-    readField("Introduce peso: ", &pacientInfo->weight);
-    readField("Fumador? [1-Si, 0-No]: ", &pacientInfo->smoker);
-    readField("Diabetico? [1-Si, 0-No]: ", &pacientInfo->diabetic);
+    readField("Introduce ID: ", &pacientInfo.pacient_id);
+    readField("Introduce edad: ", &pacientInfo.age);
+    readField("Introduce genero [1-Hombre, 0-Mujer]: ", &pacientInfo.genre);
+    readField("Introduce altura: ", &pacientInfo.height);
+    readField("Introduce peso: ", &pacientInfo.weight);
+    readField("Fumador? [1-Si, 0-No]: ", &pacientInfo.smoker);
+    readField("Diabetico? [1-Si, 0-No]: ", &pacientInfo.diabetic);
 }
 
 void computeThresholds(void){
@@ -588,6 +589,9 @@ void main_control(void){
     // Create mailbox
 	OSCreateMsg(MSG_FOR_CONTROL, (OStypeMsgP) 0);
     
+    // Create binary semaphores (pointer, initial value)
+	OSCreateBinSem(BINSEM_SEND_CAN_MSG, 1);
+    
 	// =============================================
 	// Enable peripherals that trigger interrupts
 	// =============================================
@@ -599,14 +603,17 @@ void main_control(void){
     LCDPrint("Introduce datos");
     LCDMoveSecondLine();
     LCDPrint("para continuar...");
-//    readPacientInfoWithHyperterminal(&pacientInfo);
-    pacientInfo.pacient_id = 3525;
-    pacientInfo.age = 85;
-    pacientInfo.genre = 0;
-    pacientInfo.height = 190;
-    pacientInfo.weight = 65;
-    pacientInfo.smoker = 1;
-    pacientInfo.diabetic = 0;
+    readPacientInfoWithHyperterminal();
+    LCDClear();
+    
+//    pacientInfo.pacient_id = 3525;
+//    pacientInfo.age = 85;
+//    pacientInfo.genre = 0;
+//    pacientInfo.height = 190;
+//    pacientInfo.weight = 65;
+//    pacientInfo.smoker = 1;
+//    pacientInfo.diabetic = 0;
+    
     computeThresholds();
 
 	// =============================================
