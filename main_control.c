@@ -9,11 +9,7 @@
 
 #include <p30f4011.h>
 #include <salvo.h>
-#include <stdio.h>
-#include <uart.h>
 #include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include "common.h"
 #include "libLEDs.h"
@@ -23,7 +19,6 @@
 #include "libKEYB.h"
 #include "libCAN.h"
 #include "Term.h"
-#include "delay.h"
 
 /******************************************************************************/
 /* Salvo elements declarations                                                */
