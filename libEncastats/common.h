@@ -15,7 +15,6 @@ typedef struct TensAndGlycActuatorValues {
 
 #define MONITORS_SAMPLING_PERIOD            4 // ticks (1 tick = 125 ms)
 #define INPUT_SCAN_PERIOD                   4 // ticks (1 tick = 125 ms)
-#define CONTROL_PERIOD                      4 // ticks (1 tick = 125 ms)
 
 // CAN package identifiers
 #define EXTERNAL_MONITORS_DATA_SID             0

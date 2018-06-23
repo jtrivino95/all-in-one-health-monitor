@@ -43,8 +43,9 @@
 
 // OS events control blocks (number of OS EVENT)
 // Recall that the number of OS event must range from 1 to OSEVENTS (defined in salvocfg.h)
-#define EFLAG_FOR_SHOW_ACTUATORS_STATUS         OSECBP(1)
-#define EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB    OSEFCBP(1)
+#define MSG_FOR_CONTROL                         OSECBP(1)
+#define EFLAG_FOR_SHOW_ACTUATORS_STATUS         OSECBP(2)
+#define EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB    OSEFCBP(2)
 
 #define FLAG_TENSION_ACTUATOR       0b0001
 #define FLAG_GLYCEMIA_ACTUATOR      0b0010
@@ -58,6 +59,10 @@
 typedef struct PacientInfo {
     int pacient_id, age, genre, height, weight, smoker, diabetic;
 } pacient_info_t;
+
+typedef struct Monitors {
+    float tension, glycemia, temperature, oxygen_sat;
+} monitors_t;
 
 typedef struct Actuators {
     float tension, glycemia, temperature, oxygen_sat;
@@ -85,12 +90,12 @@ typedef struct Thresholds {
 #define TEMPERATURE_KEY     2
 #define OXYGEN_SAT_KEY      5
 
-static float tension = 0.0, glycemia = 0.0, temperature = 36.0, oxygen_sat = 99.0;
 static unsigned char glycemia_monitor_activated = 0,
         tension_monitor_activated = 0,
         temperature_monitor_activated = 0,
         oxygen_sat_monitor_activated = 0;
 pacient_info_t pacientInfo;
+monitors_t monitors = {0.0, 0.0, 26.0, 97.0};
 actuators_t actuators = {0.0, 0.0, 0.0, 0.0};
 thresholds_t thresholds;
 
@@ -136,34 +141,37 @@ void TaskTempAndOxygenMonitor(void){
         if(temperature_monitor_activated){
             // The random value is the same for $rand_value_expiration_temp cycles
             if(rand_value_expiration_temp > 0){
-                temperature += rand_value + actuators.temperature;
+                monitors.temperature += rand_value + actuators.temperature;
                 rand_value_expiration_temp -= 1;
             } else {
                 rand_value_expiration_temp = 7;
                 rand_value = (float)(rand() % 2 - rand() % 2)
                              / (CAN_msg.magnitude_order);
             }
-            CAN_msg.temperature_raw = (int)(temperature * CAN_msg.magnitude_order);
+            CAN_msg.temperature_raw = (int)(monitors.temperature * CAN_msg.magnitude_order);
         }
         
         if(oxygen_sat_monitor_activated){
             // The random value is the same for $rand_value_expiration_oxygen cycles
             if(rand_value_expiration_oxygen > 0){
-                oxygen_sat += rand_value + actuators.oxygen_sat;
-                if(oxygen_sat > 100) oxygen_sat = 100;
+                monitors.oxygen_sat += rand_value + actuators.oxygen_sat;
+                if(monitors.oxygen_sat > 100) monitors.oxygen_sat = 100;
                 rand_value_expiration_oxygen -= 1;
             } else {
                 rand_value_expiration_oxygen = 3;
                 rand_value = (float)(rand() % 2 - rand() % 2)
                                     / (CAN_msg.magnitude_order);
             }
-            CAN_msg.oxygen_sat_raw = (int) (oxygen_sat * CAN_msg.magnitude_order);
+            CAN_msg.oxygen_sat_raw = (int) (monitors.oxygen_sat * CAN_msg.magnitude_order);
         }
         
         if(temperature_monitor_activated || oxygen_sat_monitor_activated){
+            char *null;
+            OSSignalMsg(MSG_FOR_CONTROL, (OStypeMsgP) null);
+            
             if(CANtransmissionCompleted()){ // TODO poner este if en todos?
                 CANsendMessage(EXTERNAL_MONITORS_DATA_SID,
-                        &CAN_msg,
+                        (unsigned char *) &CAN_msg,
                         sizeof(temp_ox_pkt_t));
             }
         }
@@ -194,34 +202,37 @@ void TaskUserInterface(void){
 void TaskControl(void){
     static tens_glyc_act_pkt_t actuators_pkt;
     actuators_pkt.magnitude_order = 10;
+    OStypeMsgP msgP;
     
     while(1){
-        if(tension_monitor_activated && (tension < thresholds.tension_lower_limit || tension > thresholds.tension_upper_limit)){
-            actuators.tension += tension > thresholds.tension_upper_limit  ? -0.1 : 0.1;
+        OS_WaitMsg(MSG_FOR_CONTROL, &msgP, OSNO_TIMEOUT);
+        
+        if(tension_monitor_activated && (monitors.tension < thresholds.tension_lower_limit || monitors.tension > thresholds.tension_upper_limit)){
+            actuators.tension += monitors.tension > thresholds.tension_upper_limit  ? -0.1 : 0.1;
             OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TENSION_ACTUATOR);
-            
+        
         } else {
             actuators.tension = 0;
         }
-        
-        if(glycemia_monitor_activated && (glycemia < thresholds.glycemia_lower_limit || glycemia > thresholds.glycemia_upper_limit)){
-            actuators.glycemia += glycemia > thresholds.glycemia_upper_limit  ? -0.1 : 0.1;
+            
+        if(glycemia_monitor_activated && (monitors.glycemia < thresholds.glycemia_lower_limit || monitors.glycemia > thresholds.glycemia_upper_limit)){
+            actuators.glycemia += monitors.glycemia > thresholds.glycemia_upper_limit  ? -0.1 : 0.1;
             OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_GLYCEMIA_ACTUATOR);
             
         } else {
             actuators.glycemia = 0;
         }
         
-        if(temperature_monitor_activated && (temperature < thresholds.temperature_lower_limit || temperature > thresholds.temperature_upper_limit)){
-            actuators.temperature += temperature > thresholds.temperature_upper_limit  ? -0.1 : 0.1;
+        if(temperature_monitor_activated && (monitors.temperature < thresholds.temperature_lower_limit || monitors.temperature > thresholds.temperature_upper_limit)){
+            actuators.temperature += monitors.temperature > thresholds.temperature_upper_limit  ? -0.1 : 0.1;
             OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_TEMPERATURE_ACTUATOR);
             
         } else {
             actuators.temperature = 0;
         }
         
-        if(oxygen_sat_monitor_activated && (oxygen_sat < thresholds.oxygen_sat_lower_limit || oxygen_sat > thresholds.oxygen_sat_upper_limit)){
-            actuators.oxygen_sat += oxygen_sat > thresholds.oxygen_sat_upper_limit  ? -0.1 : 0.1;
+        if(oxygen_sat_monitor_activated && (monitors.oxygen_sat < thresholds.oxygen_sat_lower_limit || monitors.oxygen_sat > thresholds.oxygen_sat_upper_limit)){
+            actuators.oxygen_sat += monitors.oxygen_sat > thresholds.oxygen_sat_upper_limit  ? -0.1 : 0.1;
             OSSetEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, FLAG_OXYGEN_SAT_ACTUATOR);
             
         } else {
@@ -233,9 +244,7 @@ void TaskControl(void){
         actuators_pkt.tension_act_raw = (int) (actuators.tension * actuators_pkt.magnitude_order);
         actuators_pkt.glycemia_act_raw = (int) (actuators.glycemia * actuators_pkt.magnitude_order);
         
-        CANsendMessage(CONTROL_DATA_SID, &actuators_pkt, sizeof(tens_glyc_act_pkt_t));
-        
-        OS_Delay(CONTROL_PERIOD);
+        CANsendMessage(CONTROL_DATA_SID, (unsigned char *) &actuators_pkt, sizeof(tens_glyc_act_pkt_t));
     }
 }
 
@@ -302,10 +311,12 @@ void control_ISR_C1Interrupt(void){
 		// Process data
         switch(rxMsgSID){
             case EXTERNAL_MONITORS_DATA_SID:
-                tension = (float)((tens_glyc_pkt_t*) rxMsgData)->tension_raw /
+                monitors.tension = (float)((tens_glyc_pkt_t*) rxMsgData)->tension_raw /
                                 ((temp_ox_pkt_t*) rxMsgData)->magnitude_order;
-                glycemia = (float)((tens_glyc_pkt_t*) rxMsgData)->glycemia_raw /
+                monitors.glycemia = (float)((tens_glyc_pkt_t*) rxMsgData)->glycemia_raw /
                                   ((temp_ox_pkt_t*) rxMsgData)->magnitude_order;
+                char *null;
+                OSSignalMsg(MSG_FOR_CONTROL, (OStypeMsgP) null);
                 break;
         }
 	}
@@ -435,19 +446,19 @@ void printSelectedOption(char selected_option){
             
         case 1:
             if(tension_monitor_activated){
-                sprintf(buff,"Tension:\t%.2f mmHg", tension);
+                sprintf(buff,"Tension:\t%.2f mmHg", monitors.tension);
                 TermPrint(buff); TermNewLine();
             }
             if(glycemia_monitor_activated){
-                sprintf(buff,"Glucemia:\t%.2f g/mL", glycemia);
+                sprintf(buff,"Glucemia:\t%.2f g/mL", monitors.glycemia);
                 TermPrint(buff); TermNewLine();   
             }
             if(temperature_monitor_activated){
-                sprintf(buff,"Temperatura:\t%.2f C", temperature);
+                sprintf(buff,"Temperatura:\t%.2f C", monitors.temperature);
                 TermPrint(buff); TermNewLine();
             }
             if(oxygen_sat_monitor_activated){
-                sprintf(buff,"Sat. oxigeno:\t%.2f %%", oxygen_sat);
+                sprintf(buff,"Sat. oxigeno:\t%.2f %%", monitors.oxygen_sat);
                 TermPrint(buff); TermNewLine();
             }
             break;
@@ -574,6 +585,9 @@ void main_control(void){
     // Create event flag (ecbP, efcbP, initial value)
     OSCreateEFlag(EFLAG_FOR_SHOW_ACTUATORS_STATUS, EFLAG_FOR_SHOW_ACTUATORS_STATUS_EFCB, iniValueEventShowActuatorsStatus);
     
+    // Create mailbox
+	OSCreateMsg(MSG_FOR_CONTROL, (OStypeMsgP) 0);
+    
 	// =============================================
 	// Enable peripherals that trigger interrupts
 	// =============================================
@@ -585,14 +599,14 @@ void main_control(void){
     LCDPrint("Introduce datos");
     LCDMoveSecondLine();
     LCDPrint("para continuar...");
-    readPacientInfoWithHyperterminal(&pacientInfo);
-//    pacientInfo.pacient_id = 3525;
-//    pacientInfo.age = 85;
-//    pacientInfo.genre = 0;
-//    pacientInfo.height = 190;
-//    pacientInfo.weight = 65;
-//    pacientInfo.smoker = 1;
-//    pacientInfo.diabetic = 0;
+//    readPacientInfoWithHyperterminal(&pacientInfo);
+    pacientInfo.pacient_id = 3525;
+    pacientInfo.age = 85;
+    pacientInfo.genre = 0;
+    pacientInfo.height = 190;
+    pacientInfo.weight = 65;
+    pacientInfo.smoker = 1;
+    pacientInfo.diabetic = 0;
     computeThresholds();
 
 	// =============================================
