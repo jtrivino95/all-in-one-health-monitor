@@ -136,10 +136,9 @@ void TaskPacientStatus(void){
         
         OSSignalMsg(MSG_FOR_SHOW_OUTPUT, (OStypeMsgP) &pacientStatus);
         
-//        while(!CANtransmissionCompleted()){
-//            OS_WaitBinSem(BINSEM_SEND_CAN_MSG, OSNO_TIMEOUT);
-//        }
-        while(!CANtransmissionCompleted());
+        while(!CANtransmissionCompleted()){
+            OS_WaitBinSem(BINSEM_SEND_CAN_MSG, OSNO_TIMEOUT);
+        }
         CANsendMessage(EXTERNAL_MONITORS_DATA_SID, (unsigned char *) &monitors_data, sizeof(tens_glyc_pkt_t));
         
     }

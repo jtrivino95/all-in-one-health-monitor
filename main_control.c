@@ -281,10 +281,6 @@ void control_ISR_T1Interrupt(void){
     TimerClearInt();
 	OSTimer();
 }
-void control_ISR_ADCInterrupt(void){
-	// Clear interrupt
-	IFS0bits.ADIF = 0;
-}
 
 void control_ISR_C1Interrupt(void){
     unsigned int rxMsgSID;
@@ -563,7 +559,6 @@ void main_control(void){
 	// ===================
     TermInit();
     CANinit(NORMAL_MODE, TRUE, TRUE, 0, 0);
-	CADStart(CAD_INTERACTION_BY_INTERRUPT);
     
 	// =========================
 	// Create Salvo structures

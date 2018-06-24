@@ -51,7 +51,7 @@ void _ISR _T1Interrupt(void){
 void _ISR _ADCInterrupt(void){
     switch(DEVICE_TYPE){
         case CONTROL:
-            control_ISR_ADCInterrupt();
+            // No activated
             break;
         case PLANTA:
             planta_ISR_ADCInterrupt();
